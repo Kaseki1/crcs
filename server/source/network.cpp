@@ -17,18 +17,24 @@ namespace crcs
     void* accepter(void* net)
     {
         int new_socket;
-        pthread_t connection;
+        crcs::listener* lst = static_cast<crcs::listener*>(net);
+        pthread_t listener;
         while(true)
         {
-            while((new_socket = accept(static_cast<network*>(net)->sock,
-                 (struct sockaddr*)&(static_cast<network*>(net)->ADDRESS),
-                 &(static_cast<network*>(net)->ADDRLEN))) == -1)
+            while((new_socket = accept(lst->sock,
+                 (struct sockaddr*)&(lst->ADDRESS),
+                 &(lst->ADDRLEN))) == -1)
                 sleep(1);
-            static_cast<network*>(net)->unhandled_connections.push_back(new_socket);
+            lst->unhandled_connections.push_back(new_socket);
         }
     }
+
+    void listener::set_port(unsigned port)
+    {
+        listen_port = port;
+    }
     // Инициализация прослушивающего сокета
-    bool network::init()
+    int listener::init()
     {
         ADDRESS.sin_family = AF_INET;
         ADDRESS.sin_addr.s_addr = INADDR_ANY;
@@ -36,36 +42,36 @@ namespace crcs
         ADDRLEN = sizeof(ADDRESS);
     
         if((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1)
-        {
-            std::cerr << "Error opening socket" << std::endl
-                      << "Error number: " << errno << std::endl;
-            exit(1);
-        }
-
+            return 1;   // ERR_CREATE_SOCKET
         if(bind(sock, (struct sockaddr*)&ADDRESS, sizeof(ADDRESS)) == -1)
-        {
-            std::cerr << "Error binding socket" << std::endl
-                      << "Error number: " << errno << std::endl;
-            exit(1);
-        }
-    }
-    // Прослушивание порта и вызов функции, принимающей соединения
-    bool network::start_listening()
-    {
+            return 2;   // ERR_BIND_SOCKET
         if(listen(sock, 20) == -1)
+            return 3;   // ERR_LISTEN_SOCKET
+        if(pthread_create(&accepter_thread, NULL, accepter, &sock) != 0)
+            return 4;   // ERR_CREATE_ACCEPT_THREAD
+        return 0;
+    }
+
+    int listener::get_first_unhandled()
+    {
+        if(unhandled_connections.empty())
+            return -1;
+        else
         {
-            std::cerr << "Error listening socket" << std::endl;
-            exit(1);
+            int unhandled = unhandled_connections.front();
+            unhandled_connections.pop_front();
+            return unhandled;
         }
-        pthread_create(&accepter_thread, NULL, accepter, &sock);
     }
-    bool network::stop_listening()
+    
+    int listener::close_listener()
     {
-        pthread_kill(accepter_thread, 15);
-    }
-    bool network::close()
-    {
-        shutdown(sock, SHUT_RDWR);
-        close(sock);
+        if(pthread_kill(accepter_thread, 15) != 0)
+            return 5;   // ERR_STOP_ACCEPTING
+        if(shutdown(sock, SHUT_RDWR) == -1)
+            return 6;   // ERR_SHUTDOWN_SOCKET
+        if(close(sock) == -1)
+            return 7;   // ERR_CLOSE_SOCKET
+        return 0;
     }
 }

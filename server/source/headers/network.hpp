@@ -1,29 +1,28 @@
+#pragma once
+#include <string>
+#include <deque>
+
 namespace crcs
 {
     void* accepter(void*);
     const unsigned DEFAULT_PORT = 701;
 
-    class network
+    class listener
     {
     private:
         unsigned listen_port;
         int sock {-1};
         pthread_t accepter_thread;
-        std::list<int> unhandled_connections;
-
         struct sockaddr_in ADDRESS {};
         unsigned ADDRLEN;
+        std::deque<int> unhandled_connections;
     public:
-        network() : listen_port(DEFAULT_PORT)
+        listener() : listen_port(DEFAULT_PORT)
         {}
-        network(unsigned port) : listen_port(port)
-        {}
-        // в случае ошибок функции с типом bool возвращают false,
-        // а с типом int возвращают -1
-        bool init();                // инициализация сетевого сокета
-        bool start_listening();     // начать прослушивание
-        bool stop_listening();      // прекратить прослушивание
-        int get_unhandled_conn();   // возвращает первое необработанное соединение
+        void set_port(unsigned);
+        int init();                     // инициализация прослушивания
+        int get_first_unhandled();      // возвращает первое необработанное подключение
+        int close_listener();        // прекращает прослушивание и закрывает сокет
         friend void* accepter(void*);
     };
 }
