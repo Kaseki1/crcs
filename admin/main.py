@@ -1,5 +1,8 @@
+# TODO: Заменить все русские строки на английские.
 import socket
 import json
+import os
+import pathlib
 
 
 class ConnectionIsNotEstablishedError(Exception):
@@ -15,13 +18,38 @@ class PacketFormatError(Exception):
     """
 
 
+class SessionDirectoryError(Exception):
+    """ Ошибка в директории админской сессии. Чаще всего
+    вызывается в случае, когда файл сессии имеет неверное имя
+    (например, кол-во чисел в названии отличается) или в
+    директории имеется несколько файлов сессии, что недопустимо.
+    """
+
+
 class Session:
     """ Менеджер сессий. Формирует пакеты
      на авторизацию аккаунта администратора,
      реагирует на ошибки сессий и получает их
-     из директории /etc/{название} """
+     из директории /var/tmp/crcs_session/ """
+    SESSION_DIR = pathlib.Path("/var/tmp/crcs_session/")
+
+    if not SESSION_DIR.exists():
+        SESSION_DIR.mkdir()
+
     def __init__(self):
-        pass
+
+        files_in_session_directory = os.listdir(Session.SESSION_DIR)
+
+        if len(files_in_session_directory) > 1:
+            raise SessionDirectoryError("В директории админских сессий было обнаружено более двух файлов.")
+        elif len(files_in_session_directory) == 0:
+            raise SessionDirectoryError("Сессия отсутствует.")
+        else:
+            self._sessionuid = files_in_session_directory[0]
+
+    def remove(self):
+        """ Удаляет файл сессии """
+        Session.SESSION_DIR.joinpath(self._sessionuid).unlink()
 
 
 class CommandPacket:
@@ -118,16 +146,25 @@ class ServerConnection:
             raise ConnectionIsNotEstablishedError("Trying to use the network method without connecting to the server")
 
         self.__socket.send(packet.format_to_packet_bytes())
+
         responce = self.__socket.recv(2048)
+
         self.close()
 
         # TODO: Нужно додумать способ подключения к центральному серверу: разрывать ли подключение после каждой
-        #  введенной команды и устанавливать новое, либо оставаться на текущем; а также определиться с типом,
-        #  который возвращает функция: это будет строка с ответом, либо какой-то экземпляр класса.
+        #   введенной команды и устанавливать новое, либо оставаться на текущем; а также определиться с типом,
+        #   который возвращает функция: это будет строка с ответом, либо какой-то экземпляр класса.
 
         return responce
 
+    def auth(self):
+        """ Отправляет пакет аутентификации. Сервер возвращает
+        код ответа
+        """
+        pass
+
 
 if __name__ == "__main__":
-    # TODO: Блок для реализации Cli интерфейса на основе созданных классов.
-    pass
+    # Блок для реализации Cli интерфейса на основе созданных классов
+    session = Session()
+    print(session.remove())
