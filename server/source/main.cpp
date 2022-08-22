@@ -64,13 +64,22 @@ void* admin_connection_handler(void* param)
     {
         std::string request = data["request"].asString();
         std::string sid = data["sessionuid"].asString();
-        if(request == std::string("create_pool"))
+        std::string additional_data = data["additional_data"].asString();
+        if(request == std::string("CREATE_POOL"))
             response = adm_conn.create_pool(sid);
+        if(request == std::string("GET_ADMIN_POOLS"))
+        {
+            std::vector<std::string> pools;
+            response = adm_conn.get_admin_pools(sid, pools);
+        }
+        if(request == std::string("GET_POOL_MEMBERS"))
+        {
+            std::vector<std::string> members;
+            response = adm_conn.get_pool_members(sid, additional_data, members);
+        }
         if(request == std::string("get_pool_members"))
         {
-            std::string pid = data["additional_data"].asString();
-            std::vector<std::string> members;
-            adm_conn.get_pool_members(sid, pid, members);
+            
         }
     }
     
@@ -102,6 +111,7 @@ void* admin_connection_handler(void* param)
             resp = static_cast<std::string>("{\"code\": \"success\", ") +
                                "\"comment\": null, "
                                "\"data\": " + resp_data + "}"; break;
+        default: resp = "No response";
     }
     
     adm_conn.send_message(resp);

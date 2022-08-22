@@ -12,6 +12,8 @@ namespace crcs
     const int ERR_LOGIN_IS_USED = 4;
     const int ERR_INVALID_SESSION = 5;
     const int ERR_CREATE_POOL = 6;
+    const int ERR_POOL_ACCESS_DENIED = 7;
+    const int ERR_HOST_ACCESS_DENIED = 8;
 //    const int SUCCESS_CREATE_POOL
 //    const int SUCCESS_
 //    const int SUCCESS
@@ -33,10 +35,9 @@ namespace crcs
         int add_session(std::string login, std::string sid);
         int register_admin(std::string login, std::string passwd, std::string email);
         int create_pool(std::string sid);
-        int get_pools(std::string sid, unsigned pools[]);
-        int get_pool_size(std::string sid, std::string pid, std::string& size);
+        int get_admin_pools(std::string sid, std::vector<std::string>& pools);
         int get_pool_members(std::string sid, std::string pid, std::vector<std::string>& members);
-        int get_on_pool_members(std::string sid, unsigned pid);
+        int get_pool_size(std::string sid, std::string pid, std::string& size);
         
         ~admin_connection()
         {

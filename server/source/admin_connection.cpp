@@ -86,8 +86,26 @@ namespace crcs
         }
         return 0;
     }
+    
+    int admin_connection::get_admin_pools(std::string sid, std::vector<std::string>& pools)
+    {
+        unsigned err = conn_db.get_admin_pools(sid, pools);
+        switch(err)
+        {
+            case ERR_SEND_QUERY: return ERR_DATABASE; break;
+            case ERR_INVALID_SESSION_ID: return ERR_INVALID_SESSION; break;
+        }
+        return 0;
+    }
+    
     int admin_connection::get_pool_members(std::string sid, std::string pid, std::vector<std::string>& members)
     {
+        unsigned err = conn_db.get_pool_members(sid, pid, members);
+        switch(err)
+        {
+            case ERR_SEND_QUERY: return ERR_DATABASE; break;
+            case ERR_INVALID_SESSION_ID: return ERR_INVALID_SESSION; break;
+        }
         return 0;
     }
 }

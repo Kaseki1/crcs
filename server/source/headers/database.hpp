@@ -3,6 +3,7 @@
 #include <string>
 #include <cstring>
 #include <iostream>
+#include <vector>
 #include <crypt.h>
 
 namespace crcs
@@ -14,6 +15,7 @@ namespace crcs
     const int ERR_USER_EXIST = 4;
     const int ERR_INVALID_LOGIN = 5;
     const int ERR_INVALID_SESSION_ID = 6;
+    const int ERR_ACCESS_DENIED = 7;
 
     class database
     {
@@ -35,7 +37,9 @@ namespace crcs
         int register_admin(const std::string login, const std::string hash, const std::string email);
         int get_hash(const std::string login, std::string &hash);
         int add_session(std::string login, std::string sid);
+        int get_admin_pools(const std::string sid, std::vector<std::string>& pools);
         int get_pool_size(const std::string sid, const std::string pid, std::string& size);
+        int get_pool_members(const std::string sid, const std::string pid, std::vector<std::string> members);
         int add_host(const std::string hname, const std::string pid, const std::string hid);
         int set_host_up(const unsigned hid);
         int set_host_down(const unsigned hid);
