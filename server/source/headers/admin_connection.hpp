@@ -7,16 +7,12 @@
 
 namespace crcs
 {
-    const int ERR_INVALID_CREDINTAILS = 2;
-    const int ERR_DATABASE = 3;
+    const int ERR_INVALID_CREDINTAILS = 3;
     const int ERR_LOGIN_IS_USED = 4;
     const int ERR_INVALID_SESSION = 5;
     const int ERR_CREATE_POOL = 6;
     const int ERR_POOL_ACCESS_DENIED = 7;
     const int ERR_HOST_ACCESS_DENIED = 8;
-//    const int SUCCESS_CREATE_POOL
-//    const int SUCCESS_
-//    const int SUCCESS
     
     class admin_connection : public connection
     {

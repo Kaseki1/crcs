@@ -28,7 +28,6 @@ int DB_PORT = 3306;
 // - автоматическое удаление сессий     //
 //   по истечении опред. времени        //
 // - реализовать чтение конфига         //
-// - получение количества хостов в пуле //
 ////////////////////////////////////////*/
 
 std::list<crcs::host_connection> active_hosts;
@@ -38,12 +37,20 @@ void* admin_connection_handler(void* param)
                                     DB_USERNAME, DB_PASSWORD, DB_DBNAME, DB_PORT);
     Json::Value data;
     Json::Reader reader;
-    std::string message;
-    adm_conn.recv_message(message);
-    reader.parse(message, data);
-    
     unsigned response;
     std::string resp_data = "null";
+    std::string message;
+    
+    response = adm_conn.recv_message(message);
+    
+    if(response == crcs::ERR_INVALID_PACKET)
+    {
+        adm_conn.close_connection();
+        delete static_cast<int*>(param);
+        pthread_exit(0);
+    }
+    
+    reader.parse(message, data);
     
     if(data["op_type"] == std::string("reg"))
     {
@@ -71,13 +78,41 @@ void* admin_connection_handler(void* param)
         {
             std::vector<std::string> pools;
             response = adm_conn.get_admin_pools(sid, pools);
+            resp_data = "[";
+            for(int i {}; i < (static_cast<int>(pools.size()) - 1); i++)
+            {
+                resp_data += pools[i] + ", ";
+            }
+            if(pools.size() != 0)
+                resp_data += pools.back();
+            resp_data += "]";
         }
         if(request == std::string("GET_POOL_MEMBERS"))
         {
             std::vector<std::string> members;
             response = adm_conn.get_pool_members(sid, additional_data, members);
+            resp_data = "[";
+            int i {};
+            for(; i < (static_cast<int>(members.size()) - 2); i += 2)
+            {
+                resp_data += "{" + members[i] + ", " + members[i+1] + "}" + ", ";
+            }
+            if(members.size() != 0)
+                resp_data += "{" + members[i] + ", " + members[i+1] + "}" + ", ";
+            resp_data += "]";
         }
-        if(request == std::string("get_pool_members"))
+    }
+    else if(data["op_type"] == std::string("command"))
+    {
+        std::string command = data["command"].asString();
+        std::string sid = data["sessionuid"].asString();
+        std::string reciever = data["reciever"].asString();
+        std::string pool = data["pool"].asString();
+        if(reciever == std::string("broadcast"))
+        {
+            
+        }
+        else
         {
             
         }
@@ -118,23 +153,31 @@ void* admin_connection_handler(void* param)
     
     adm_conn.close_connection();
     delete static_cast<int*>(param);
+    pthread_exit(0);
 }
 
 void* host_connetion_handler(void* param)
 {
-    crcs::admin_connection adm_conn(*static_cast<int*>(param), DB_HOSTNAME,
+    crcs::host_connection hst_conn(*static_cast<int*>(param), DB_HOSTNAME,
                                     DB_USERNAME, DB_PASSWORD, DB_DBNAME, DB_PORT);
     Json::Value data;
     Json::Reader reader;
     std::string message;
-    adm_conn.recv_message(message);
+    hst_conn.recv_message(message);
     reader.parse(message, data);
+    
+    unsigned resp_code;
+    std::string resp_data = "null";
     
     if(data["op_type"] == std::string("init"))
     {
         std::string hname = data["hostname"].asString();
         std::string pid = data["pool_id"].asString();
+        std::string ip = "NULL"; // TODO: make a normal ip handling
+        std::string hkey;
+        resp_code = hst_conn.init(hname, pid, ip, hkey);
     }
+    
 }
 
 int main()

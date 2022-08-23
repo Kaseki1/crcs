@@ -5,9 +5,9 @@ namespace crcs
     int database::connect()
     {
         if(!(crcs_db = mysql_init(crcs_db)))
-            return 1;           // ERR_INIT_MYSQL_OBJECT
+            return ERR_INIT_MYSQL_OBJECT;
         if(!mysql_real_connect(crcs_db, hostname.c_str(), username.c_str(), password.c_str(), dbname.c_str(), port, NULL, 0))
-            return 2;           // ERR_CONNECTING_DATABASE
+            return ERR_CONNECTING_DATABASE;
         return 0;
     }
 
@@ -22,18 +22,18 @@ namespace crcs
         if(mysql_query(crcs_db, check_query.c_str()))
         {
             std::cerr << mysql_error(crcs_db);
-            return 3;           // ERR_SEND_QUERY
+            return ERR_SEND_QUERY;
         }
         MYSQL_RES* count_res = mysql_store_result(crcs_db);
         MYSQL_ROW count_row = mysql_fetch_row(count_res);
         if(static_cast<std::string>(count_row[0]) != static_cast<std::string>("0"))
         {
             mysql_free_result(count_res);
-            return 4;           // ERR_USER_EXIST
+            return ERR_USER_EXIST;
         }
         mysql_free_result(count_res);
         if(mysql_query(crcs_db, create_query.c_str()))
-            return 3;           // ERR_SEND_QUERY
+            return ERR_SEND_QUERY;
         return 0;
     }
     int database::get_hash(const std::string login, std::string &hash)
@@ -44,21 +44,21 @@ namespace crcs
                                                            login + "'";
         if(mysql_query(crcs_db, check_query.c_str()))
         {
-            return 3;           // ERR_SEND_QUERY
+            return ERR_SEND_QUERY;
         }
         MYSQL_RES* count_res = mysql_store_result(crcs_db);
         MYSQL_ROW count_row = mysql_fetch_row(count_res);
         if(static_cast<std::string>(count_row[0]) == static_cast<std::string>("0"))
         {
             mysql_free_result(count_res);
-            return 5;           // ERR_INVALID_LOGIN
+            return ERR_INVALID_LOGIN;
         }
         mysql_free_result(count_res);
 
         if(mysql_query(crcs_db, hash_query.c_str()))
         {
             std::cerr << mysql_error(crcs_db);
-            return 3;           // ERR_SEND_QUERY
+            return ERR_SEND_QUERY;
         }
         MYSQL_RES* hash_res = mysql_store_result(crcs_db);
         MYSQL_ROW hash_row = mysql_fetch_row(hash_res);
@@ -77,21 +77,21 @@ namespace crcs
         if(mysql_query(crcs_db, check_query.c_str()))
         {
             std::cout << mysql_error(crcs_db) << std::endl;
-            return 3;           // ERR_SEND_QUERY
+            return ERR_SEND_QUERY;
         }
         MYSQL_RES* count_res = mysql_store_result(crcs_db);
         MYSQL_ROW count_row = mysql_fetch_row(count_res);
         if(static_cast<std::string>(count_row[0]) != static_cast<std::string>("0"))
         {
             mysql_free_result(count_res);
-            return 6;           // ERR_INVALID_SESSION_ID
+            return ERR_INVALID_SESSION_ID;
         }
         mysql_free_result(count_res);
 
         if(mysql_query(crcs_db, create_query.c_str()))
         {
             std::cout << mysql_error(crcs_db) << std::endl;
-            return 3;           // ERR_SEND_QUERY
+            return ERR_SEND_QUERY;
         }
         return 0;
     }
@@ -157,7 +157,7 @@ namespace crcs
         return 0;
     }
     
-    int database::get_pool_members(const std::string sid, const std::string pid, std::vector<std::string> members)
+    int database::get_pool_members(const std::string sid, const std::string pid, std::vector<std::string>& members)
     {
         std::string check_query = static_cast<std::string>("SELECT COUNT(*) FROM admin_session WHERE session_id = '") +
                                                            sid + static_cast<std::string>("'");
@@ -165,7 +165,7 @@ namespace crcs
                                                             "(SELECT admin_id FROM admin_session WHERE session_id = '" +
                                                             sid + static_cast<std::string>("') ") +
                                                             "AND pool_id = '" + pid + "'";
-        std::string get_query = static_cast<std::string>("SELECT COUNT(*) FROM hosts WHERE pool_id = '") +
+        std::string get_query = static_cast<std::string>("SELECT hostname, host_key FROM hosts WHERE pool_id = '") +
                                                            pid + static_cast<std::string>("'");
         if(mysql_query(crcs_db, check_query.c_str()))
         {
@@ -202,8 +202,8 @@ namespace crcs
         MYSQL_ROW get_row;
         while((get_row = mysql_fetch_row(get_res)) != NULL)
         {
-            members.push_back(static_cast<std::string>(get_row[2]));
-            members.push_back(static_cast<std::string>(get_row[3]));
+            members.push_back(static_cast<std::string>(get_row[0]));
+            members.push_back(static_cast<std::string>(get_row[1]));
         }
         mysql_free_result(get_res);
         return 0;
@@ -214,9 +214,9 @@ namespace crcs
         std::string check_query = static_cast<std::string>("SELECT COUNT(*) FROM admin_session WHERE session_id = '") +
                                                            sid + static_cast<std::string>("'");
         std::string get_query = static_cast<std::string>("SELECT pool_id FROM pools WHERE ") +
-                                                           "admin_id = ((" +
+                                                           "admin_id = (" +
                                                            "SELECT admin_id FROM admin_session" + 
-                                                           " WHERE session_id = '" + sid + "'))";
+                                                           " WHERE session_id = '" + sid + "')";
         if(mysql_query(crcs_db, check_query.c_str()))
         {
             std::cout << mysql_error(crcs_db) << std::endl;
@@ -231,6 +231,11 @@ namespace crcs
         }
         mysql_free_result(count_res);
 
+        if(mysql_query(crcs_db, get_query.c_str()))
+        {
+            std::cout << mysql_error(crcs_db) << std::endl;
+            return ERR_SEND_QUERY;
+        }
         MYSQL_RES* get_res = mysql_store_result(crcs_db);
         MYSQL_ROW get_row;
         while((get_row = mysql_fetch_row(get_res)) != NULL)
@@ -241,8 +246,27 @@ namespace crcs
         return 0;
     }
     
-    int database::add_host(const std::string hname, const std::string pid, const std::string hid)
+    int database::add_host(const std::string hname, const std::string pid, const std::string hkey, const std::string ip)
     {
+        std::string check_query = static_cast<std::string>("SELECT COUNT(*) FROM hosts WHERE hid = '") +
+                                  hkey + static_cast<std::string>("'");
+        std::string create_query = static_cast<std::string>("INSERT INTO hosts (pool_id, hostname, host_key, ip_addr) VALUES ('") +
+                                   pid + "', '" + hname + "', '" + hkey + "', '" + ip + "')";
+        if(mysql_query(crcs_db, check_query.c_str()))
+        {
+            std::cerr << mysql_error(crcs_db);
+            return ERR_SEND_QUERY;
+        }
+        MYSQL_RES* count_res = mysql_store_result(crcs_db);
+        MYSQL_ROW count_row = mysql_fetch_row(count_res);
+        if(static_cast<std::string>(count_row[0]) != static_cast<std::string>("0"))
+        {
+            mysql_free_result(count_res);
+            return ERR_INVALID_HOST_KEY;
+        }
+        mysql_free_result(count_res);
+        if(mysql_query(crcs_db, create_query.c_str()))
+            return ERR_SEND_QUERY;
         return 0;
     }
     int database::set_host_up(const unsigned hid)

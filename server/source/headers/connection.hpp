@@ -7,7 +7,9 @@
 
 namespace crcs
 {
-    const int ERR_TIMEOUT = 1;
+    const int ERR_INVALID_PACKET = 1;
+    const int ERR_DATABASE = 2;
+    
     class connection
     {
     protected:
@@ -38,14 +40,13 @@ namespace crcs
         virtual int recv_message(std::string &msg)
         {
             char buff[2] {};
-            unsigned counter {};
             do
             {
                 read(sock, buff, 1);
                 msg += buff;
-                if(counter >= 1000)
-                    return ERR_TIMEOUT;
-            }while(buff[0] != '}');
+            }while(buff[0] != '}' && buff[0] != '\0');
+            if(buff[0] == '\0')
+                return ERR_INVALID_PACKET;
             return 0;
         }
     };

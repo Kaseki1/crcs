@@ -16,6 +16,7 @@ namespace crcs
     const int ERR_INVALID_LOGIN = 5;
     const int ERR_INVALID_SESSION_ID = 6;
     const int ERR_ACCESS_DENIED = 7;
+    const int ERR_INVALID_HOST_KEY = 8;
 
     class database
     {
@@ -39,8 +40,8 @@ namespace crcs
         int add_session(std::string login, std::string sid);
         int get_admin_pools(const std::string sid, std::vector<std::string>& pools);
         int get_pool_size(const std::string sid, const std::string pid, std::string& size);
-        int get_pool_members(const std::string sid, const std::string pid, std::vector<std::string> members);
-        int add_host(const std::string hname, const std::string pid, const std::string hid);
+        int get_pool_members(const std::string sid, const std::string pid, std::vector<std::string>& members);
+        int add_host(const std::string hname, const std::string pid, const std::string hkey, const std::string ip);
         int set_host_up(const unsigned hid);
         int set_host_down(const unsigned hid);
         int create_pool(const std::string sid);
