@@ -24,20 +24,11 @@ namespace crcs
         session_id = hkey;
         return 0;
     }
-    int host_connection::connect(std::string hid)
+    int host_connection::connect(std::string hkey)
     {
-        return 0;
-    }
-    int host_connection::get_hid(std::string& hid)
-    {
-        return 0;
-    }
-    int host_connection::get_command(std::string& command)
-    {
-        return 0;
-    }
-    int host_connection::push_command(std::string command)
-    {
+        if(conn_db.get_user_info(hkey, hostname, pool_id) == ERR_INVALID_HOST_KEY)
+            return ERR_INVALID_KEY;
+        host_key = hkey;
         return 0;
     }
 }

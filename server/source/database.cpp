@@ -246,9 +246,9 @@ namespace crcs
         return 0;
     }
     
-    int database::add_host(const std::string hname, const std::string pid, const std::string hkey, const std::string ip)
+    int database::add_host(const std::string hname, const std::string pid, const std::string& hkey, const std::string ip)
     {
-        std::string check_query = static_cast<std::string>("SELECT COUNT(*) FROM hosts WHERE hid = '") +
+        std::string check_query = static_cast<std::string>("SELECT COUNT(*) FROM hosts WHERE host_key = '") +
                                   hkey + static_cast<std::string>("'");
         std::string create_query = static_cast<std::string>("INSERT INTO hosts (pool_id, hostname, host_key, ip_addr) VALUES ('") +
                                    pid + "', '" + hname + "', '" + hkey + "', '" + ip + "')";
@@ -266,17 +266,34 @@ namespace crcs
         }
         mysql_free_result(count_res);
         if(mysql_query(crcs_db, create_query.c_str()))
+        {
+            std::cerr << mysql_error(crcs_db);
             return ERR_SEND_QUERY;
+        }
         return 0;
     }
-    int database::set_host_up(const unsigned hid)
+    
+    int database::get_user_info(std::string hkey, std::string& hname, std::string& pool)
     {
+        std::string info_query = static_cast<std::string>("SELECT hostname, pool_id FROM hosts WHERE host_key = '") +
+                                  hkey + static_cast<std::string>("'");
+        if(mysql_query(crcs_db, info_query.c_str()))
+        {
+            std::cerr << mysql_error(crcs_db);
+            return ERR_SEND_QUERY;
+        }
+        MYSQL_RES* info_res = mysql_store_result(crcs_db);
+        MYSQL_ROW info_row = mysql_fetch_row(info_res);
+        if(info_row == NULL)
+        {
+            mysql_free_result(info_res);
+            return ERR_INVALID_HOST_KEY;
+        }
+        hname = static_cast<std::string>(info_row[0]);
+        pool = static_cast<std::string>(info_row[1]);
         return 0;
     }
-    int database::set_host_down(const unsigned hid)
-    {
-        return 0;
-    }
+    
     int database::disconnect()
     {
         mysql_close(crcs_db);

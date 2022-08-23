@@ -41,9 +41,8 @@ namespace crcs
         int get_admin_pools(const std::string sid, std::vector<std::string>& pools);
         int get_pool_size(const std::string sid, const std::string pid, std::string& size);
         int get_pool_members(const std::string sid, const std::string pid, std::vector<std::string>& members);
-        int add_host(const std::string hname, const std::string pid, const std::string hkey, const std::string ip);
-        int set_host_up(const unsigned hid);
-        int set_host_down(const unsigned hid);
+        int add_host(const std::string hname, const std::string pid, const std::string& hkey, const std::string ip);
+        int get_user_info(std::string hkey, std::string& hname, std::string& pool);
         int create_pool(const std::string sid);
         int disconnect();
     };

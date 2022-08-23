@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <vector>
 #include <list>
@@ -110,11 +111,31 @@ void* admin_connection_handler(void* param)
         std::string pool = data["pool"].asString();
         if(reciever == std::string("broadcast"))
         {
-            
+            std::vector<std::string> pools;
+            adm_conn.get_admin_pools(sid, pools);
+            std::vector<std::string>::iterator p = find(pools.begin(), pools.end(), pool);
+            if(pools.end() != p || pools.back() == pool)
+            {
+                std::list<crcs::host_connection>::iterator it=active_hosts.begin();
+                if(!active_hosts.empty())
+                    do
+                    {
+                        if(it->get_pool_id() == pool)
+                        {
+                            std::string packet = static_cast<std::string>("{\"op_type\": \"command\", ") +
+                                                 "\"command\": " + command + "\"}";
+                            it->send_message(packet);
+                        }
+                        it++;
+                    }while(it != active_hosts.end());
+                response = 0;
+            }
+            else
+                response = crcs::ERR_POOL_ACCESS_DENIED;
         }
         else
         {
-            
+            response = 0;
         }
     }
     
@@ -142,6 +163,14 @@ void* admin_connection_handler(void* param)
             resp = static_cast<std::string>("{\"code\": \"error\", ") +
                                "\"comment\": \"Can not create pool\", "
                                "\"data\": null}"; break;
+        case crcs::ERR_HOST_ACCESS_DENIED:
+            resp = static_cast<std::string>("{\"code\": \"error\", ") +
+                               "\"comment\": \"Access to host denied\", "
+                               "\"data\": null}"; break;
+        case crcs::ERR_POOL_ACCESS_DENIED:
+            resp = static_cast<std::string>("{\"code\": \"error\", ") +
+                               "\"comment\": \"Access to pool denied\", "
+                               "\"data\": null}"; break;
         case 0:
             resp = static_cast<std::string>("{\"code\": \"success\", ") +
                                "\"comment\": null, "
@@ -156,7 +185,7 @@ void* admin_connection_handler(void* param)
     pthread_exit(0);
 }
 
-void* host_connetion_handler(void* param)
+void* host_connection_handler(void* param)
 {
     crcs::host_connection hst_conn(*static_cast<int*>(param), DB_HOSTNAME,
                                     DB_USERNAME, DB_PASSWORD, DB_DBNAME, DB_PORT);
@@ -174,10 +203,33 @@ void* host_connetion_handler(void* param)
         std::string hname = data["hostname"].asString();
         std::string pid = data["pool_id"].asString();
         std::string ip = "NULL"; // TODO: make a normal ip handling
-        std::string hkey;
-        resp_code = hst_conn.init(hname, pid, ip, hkey);
+        resp_code = hst_conn.init(hname, pid, ip, resp_data);
+    }
+    else if(data["op_type"] == std::string("connect"))
+    {
+        std::string hkey = data["host_id"].asString();
+        if(!(resp_code = hst_conn.connect(hkey)))
+            active_hosts.push_back(hst_conn);
     }
     
+    std::string response;
+    
+    switch(resp_code)
+    {
+        case crcs::ERR_INVALID_KEY:
+            response = static_cast<std::string>("{\"code\": \"error\", ") +
+                               "\"comment\": \"Invalid host key\", "
+                               "\"data\": " + resp_data + "}"; break;
+        case crcs::ERR_DATABASE:
+            response = static_cast<std::string>("{\"code\": \"error\", ") +
+                               "\"comment\": \"Error in database\", "
+                               "\"data\": " + resp_data + "}"; break;
+        default:
+            response = static_cast<std::string>("{\"code\": \"success\", ") +
+                               "\"comment\": null, "
+                               "\"data\": " + resp_data + "}"; break;
+    }
+    hst_conn.send_message(response);
 }
 
 int main()
@@ -220,7 +272,7 @@ int main()
             pthread_t new_thread;
             int* conn = new int;
             *conn = newconn;
-            pthread_create(&new_thread, NULL, admin_connection_handler, conn);
+            pthread_create(&new_thread, NULL, host_connection_handler, conn);
             admins.push_back(new_thread);
         }
     }
