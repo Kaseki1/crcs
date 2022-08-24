@@ -108,4 +108,20 @@ namespace crcs
         }
         return 0;
     }
+    
+    int admin_connection::delete_pool(std::string sid, std::string pid)
+    {
+        std::vector<std::string> pools;
+        unsigned err = this->get_admin_pools(sid, pools);
+        std::vector<std::string>::iterator it = find(pools.begin(), pools.end(), pid);
+        if(pools.empty() || (it == pools.end() && pools.back() != pid))
+            return ERR_POOL_ACCESS_DENIED;
+        err = conn_db.delete_pool(sid, pid);
+        switch(err)
+        {
+            case ERR_SEND_QUERY: return ERR_DATABASE; break;
+            case ERR_INVALID_SESSION_ID: return ERR_INVALID_SESSION; break;
+        }
+        return 0;
+    }
 }

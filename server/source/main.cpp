@@ -31,7 +31,7 @@ int DB_PORT = 3306;
 // - реализовать чтение конфига         //
 ////////////////////////////////////////*/
 
-std::list<crcs::host_connection> active_hosts;
+std::list<crcs::host_connection*> active_hosts;
 void* admin_connection_handler(void* param)
 {
     crcs::admin_connection adm_conn(*static_cast<int*>(param), DB_HOSTNAME,
@@ -90,7 +90,7 @@ void* admin_connection_handler(void* param)
                 resp_data += pools.back();
             resp_data += "]";
         }
-        if(request == std::string("GET_POOL_MEMBERS"))
+        else if(request == std::string("GET_POOL_MEMBERS"))
         {
             std::vector<std::string> members;
             response = adm_conn.get_pool_members(sid, additional_data, members);
@@ -103,6 +103,10 @@ void* admin_connection_handler(void* param)
             if(members.size() != 0)
                 resp_data += "{" + members[i] + ", " + members[i+1] + "}" + ", ";
             resp_data += "]";
+        }
+        else if(data["request"] == std::string("DESTROY_POOL"))
+        {
+            response = adm_conn.delete_pool(sid, additional_data);
         }
     }
     else if(data["op_type"] == std::string("command"))
@@ -118,15 +122,15 @@ void* admin_connection_handler(void* param)
             std::vector<std::string>::iterator p = find(pools.begin(), pools.end(), pool);
             if(pools.end() != p || pools.back() == pool)
             {
-                std::list<crcs::host_connection>::iterator it=active_hosts.begin();
+                std::list<crcs::host_connection*>::iterator it=active_hosts.begin();
                 if(!active_hosts.empty())
                     do
                     {
-                        if(it->get_pool_id() == pool)
+                        if((*it)->get_pool_id() == pool)
                         {
                             std::string packet = static_cast<std::string>("{\"op_type\": \"command\", ") +
                                                  "\"command\": " + command + "\"}";
-                            it->send_message(packet);
+                            (*it)->send_message(packet);
                         }
                         it++;
                     }while(it != active_hosts.end());
@@ -137,7 +141,19 @@ void* admin_connection_handler(void* param)
         }
         else
         {
-            response = 0;
+            std::string hkey = data["reciever"].asString();
+            std::list<crcs::host_connection*>::iterator it=active_hosts.begin();
+            do
+            {
+                if((*it)->get_host_key() == hkey)
+                {
+                    std::string packet = static_cast<std::string>("{\"op_type\": \"command\", ") +
+                                         "\"command\": " + command + "\"}";
+                    (*it)->send_message(packet);
+                    break;
+                }
+                it++;
+            }while(it != active_hosts.end());
         }
     }
     
@@ -189,12 +205,12 @@ void* admin_connection_handler(void* param)
 
 void* host_connection_handler(void* param)
 {
-    crcs::host_connection hst_conn(*static_cast<int*>(param), DB_HOSTNAME,
-                                    DB_USERNAME, DB_PASSWORD, DB_DBNAME, DB_PORT);
+    crcs::host_connection* hst_conn = new crcs::host_connection(*static_cast<int*>(param), DB_HOSTNAME,
+                                                                DB_USERNAME, DB_PASSWORD, DB_DBNAME, DB_PORT);
     Json::Value data;
     Json::Reader reader;
     std::string message;
-    hst_conn.recv_message(message);
+    hst_conn->recv_message(message);
     reader.parse(message, data);
     
     unsigned resp_code;
@@ -205,14 +221,14 @@ void* host_connection_handler(void* param)
         std::string hname = data["hostname"].asString();
         std::string pid = data["pool_id"].asString();
         std::string ip = "NULL"; // TODO: make a normal ip handling
-        resp_code = hst_conn.init(hname, pid, ip, resp_data);
+        resp_code = hst_conn->init(hname, pid, ip, resp_data);
         resp_data = std::string("\"") + resp_data;
         resp_data.push_back('"');
     }
     else if(data["op_type"] == std::string("connect"))
     {
         std::string hkey = data["host_id"].asString();
-        if(!(resp_code = hst_conn.connect(hkey)))
+        if(!(resp_code = hst_conn->connect(hkey)))
             active_hosts.push_back(hst_conn);
     }
     
@@ -233,7 +249,7 @@ void* host_connection_handler(void* param)
                                "\"comment\": null, "
                                "\"data\": " + resp_data + "}"; break;
     }
-    hst_conn.send_message(response);
+    hst_conn->send_message(response);
 }
 
 int main()

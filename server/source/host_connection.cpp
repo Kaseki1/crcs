@@ -2,6 +2,13 @@
 
 namespace crcs
 {
+    bool operator==(host_connection hst1, host_connection hst2)
+    {
+        if(hst1.session_id == hst2.session_id)
+            return true;
+        return false;
+    }
+    
     std::string host_connection::gen_hkey()
     {
         std::random_device rd;
@@ -28,7 +35,7 @@ namespace crcs
     {
         if(conn_db.get_user_info(hkey, hostname, pool_id) == ERR_INVALID_HOST_KEY)
             return ERR_INVALID_KEY;
-        host_key = hkey;
+        session_id = hkey;
         return 0;
     }
 }

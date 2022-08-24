@@ -44,6 +44,7 @@ namespace crcs
         int add_host(const std::string hname, const std::string pid, const std::string& hkey, const std::string ip);
         int get_user_info(std::string hkey, std::string& hname, std::string& pool);
         int create_pool(const std::string sid);
+        int delete_pool(const std::string sid, const std::string pool_id);
         int disconnect();
     };
 }

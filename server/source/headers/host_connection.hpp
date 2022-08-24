@@ -8,11 +8,11 @@
 namespace crcs
 {
     const int ERR_INVALID_KEY = 3;
+    
     class host_connection : public connection
     {
     private:
         std::string pool_id;
-        std::string host_key;
         std::string hostname;
         std::string gen_hkey();
     public:
@@ -29,11 +29,12 @@ namespace crcs
         }
         std::string get_host_key()
         {
-            return host_key;
+            return session_id;
         }
         
         int init(std::string hname, std::string pid, std::string ip, std::string& hkey);
         int connect(std::string key);
+        friend bool operator==(host_connection, host_connection);
         
         ~host_connection()
         {

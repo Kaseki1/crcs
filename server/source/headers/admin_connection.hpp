@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <random>
+#include <algorithm>
 #include <unistd.h>
 #include "database.hpp"
 #include "connection.hpp"
@@ -34,6 +35,7 @@ namespace crcs
         int get_admin_pools(std::string sid, std::vector<std::string>& pools);
         int get_pool_members(std::string sid, std::string pid, std::vector<std::string>& members);
         int get_pool_size(std::string sid, std::string pid, std::string& size);
+        int delete_pool(std::string sid, std::string pid);
         
         ~admin_connection()
         {

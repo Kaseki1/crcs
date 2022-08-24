@@ -294,6 +294,30 @@ namespace crcs
         return 0;
     }
     
+    int database::delete_pool(const std::string sid, const std::string pool_id)
+    {
+        std::string check_query = static_cast<std::string>("SELECT COUNT(*) FROM admin_session WHERE session_id = '") +
+                                                           sid + static_cast<std::string>("'");
+        std::string delete_query = static_cast<std::string>("DELETE FROM pools WHERE pool_id = ") + pool_id;
+        if(mysql_query(crcs_db, check_query.c_str()))
+        {
+            std::cout << mysql_error(crcs_db) << std::endl;
+            return ERR_SEND_QUERY;
+        }
+        MYSQL_RES* check_res = mysql_store_result(crcs_db);
+        MYSQL_ROW check_row = mysql_fetch_row(check_res);
+        if(static_cast<std::string>(check_row[0]) == static_cast<std::string>("0"))
+        {
+            mysql_free_result(check_res);
+            return ERR_INVALID_SESSION_ID;
+        }
+        if(mysql_query(crcs_db, delete_query.c_str()))
+        {
+            std::cout << mysql_error(crcs_db) << std::endl;
+            return ERR_SEND_QUERY;
+        }
+    }
+    
     int database::disconnect()
     {
         mysql_close(crcs_db);
