@@ -207,7 +207,7 @@ void* host_connection_handler(void* param)
         std::string ip = "NULL"; // TODO: make a normal ip handling
         resp_code = hst_conn.init(hname, pid, ip, resp_data);
         resp_data = std::string("\"") + resp_data;
-        resp_data.push_back('"')
+        resp_data.push_back('"');
     }
     else if(data["op_type"] == std::string("connect"))
     {
