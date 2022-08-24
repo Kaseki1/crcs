@@ -33,7 +33,7 @@ namespace crcs
         
         virtual int send_message(std::string &msg)
         {
-            write(sock, msg.c_str(), msg.length()+1);
+            write(sock, msg.c_str(), msg.length());
             return 0;
         }
         

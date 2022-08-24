@@ -66,6 +66,8 @@ void* admin_connection_handler(void* param)
         std::string login = data["login"].asString();
         std::string password = data["password"].asString();
         response = adm_conn.authenticate(login, password, resp_data);
+        resp_data = std::string("\"") + resp_data;
+        resp_data.push_back('"');
     }
     
     else if(data["op_type"] == std::string("server"))
