@@ -30,7 +30,7 @@ int DB_PORT = 3306;
 //   по истечении опред. времени        //
 // - реализовать чтение конфига         //
 ////////////////////////////////////////*/
-
+// /ᐠ - ˕ - ﾏ
 std::list<crcs::host_connection*> active_hosts;
 void* admin_connection_handler(void* param)
 {
@@ -115,10 +115,10 @@ void* admin_connection_handler(void* param)
         std::string sid = data["sessionuid"].asString();
         std::string reciever = data["reciever"].asString();
         std::string pool = data["pool"].asString();
+        std::vector<std::string> pools;
+        response = adm_conn.get_admin_pools(sid, pools);
         if(reciever == std::string("broadcast"))
         {
-            std::vector<std::string> pools;
-            adm_conn.get_admin_pools(sid, pools);
             std::vector<std::string>::iterator p = find(pools.begin(), pools.end(), pool);
             if(pools.end() != p || pools.back() == pool)
             {
@@ -143,17 +143,18 @@ void* admin_connection_handler(void* param)
         {
             std::string hkey = data["reciever"].asString();
             std::list<crcs::host_connection*>::iterator it=active_hosts.begin();
-            do
-            {
-                if((*it)->get_host_key() == hkey)
+            if(!active_hosts.empty() && !pools.empty())
+                do
                 {
-                    std::string packet = static_cast<std::string>("{\"op_type\": \"command\", ") +
-                                         "\"command\": " + command + "\"}";
-                    (*it)->send_message(packet);
-                    break;
-                }
-                it++;
-            }while(it != active_hosts.end());
+                    if((*it)->get_host_key() == hkey)
+                    {
+                        std::string packet = static_cast<std::string>("{\"op_type\": \"command\", ") +
+                                             "\"command\": " + command + "\"}";
+                        (*it)->send_message(packet);
+                        break;
+                    }
+                    it++;
+                }while(it != active_hosts.end());
         }
     }
     
