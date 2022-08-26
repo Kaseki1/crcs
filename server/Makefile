@@ -1,6 +1,6 @@
 all: main.o admin_connection.o host_connection.o listener.o database.o
 	[[ -d debug ]] || mkdir debug
-	g++ -std=c++2a -ljsoncpp -lmariadb -lcrypt main.o admin_connection.o host_connection.o listener.o database.o -o ./debug/server
+	g++ -std=c++2a -lcrypto -lssl -ljsoncpp -lmariadb -lcrypt main.o admin_connection.o host_connection.o listener.o database.o -o ./debug/server
 
 main.o:
 	g++ -std=c++2a -g -c ./source/main.cpp

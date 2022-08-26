@@ -149,8 +149,11 @@ void* admin_connection_handler(void* param)
                     if((*it)->get_host_key() == hkey)
                     {
                         std::string packet = static_cast<std::string>("{\"op_type\": \"command\", ") +
-                                             "\"command\": " + command + "\"}";
+                                             "\"command\": " + command + "\", \"verbose\": \"true\"}";
                         (*it)->send_message(packet);
+                        packet = "";
+                        (*it)->recv_message(packet);
+                        adm_conn.send_message(packet);
                         break;
                     }
                     it++;
