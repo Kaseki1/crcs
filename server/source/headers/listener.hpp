@@ -16,12 +16,13 @@ namespace crcs
 {
     const unsigned ERR_CREATE_SOCKET = 1;
     const unsigned ERR_BIND_SOCKET = 2;
-    const unsigned ERR_LISTEN_SOCKET = 3;
-    const unsigned ERR_CREATE_ACCEPT_THREAD = 4;
-    const unsigned ERR_NO_UNHANDLED = 5;
-    const unsigned ERR_STOP_ACCEPTING = 6;
-    const unsigned ERR_SHUTDOWN_SOCKET = 7;
-    const unsigned ERR_CLOSE_SOCKET = 8;
+    const unsigned ERR_SET_TIMEOUT = 3;
+    const unsigned ERR_LISTEN_SOCKET = 4;
+    const unsigned ERR_CREATE_ACCEPT_THREAD = 5;
+    const unsigned ERR_NO_UNHANDLED = 6;
+    const unsigned ERR_STOP_ACCEPTING =7;
+    const unsigned ERR_SHUTDOWN_SOCKET = 8;
+    const unsigned ERR_CLOSE_SOCKET = 9;
 
     void* accepter(void*);
 

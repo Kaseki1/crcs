@@ -162,7 +162,7 @@ namespace crcs
         std::string check_query = static_cast<std::string>("SELECT COUNT(*) FROM admin_session WHERE session_id = '") +
                                                            sid + static_cast<std::string>("'");
         std::string access_query = static_cast<std::string>("SELECT COUNT(*) FROM pools WHERE admin_id = ") +
-                                                            "(SELECT admin_id FROM admin_session WHERE session_id = '" +
+                                                            "(SELECT hostname, admin_id FROM admin_session WHERE session_id = '" +
                                                             sid + static_cast<std::string>("') ") +
                                                             "AND pool_id = '" + pid + "'";
         std::string get_query = static_cast<std::string>("SELECT hostname, host_key FROM hosts WHERE pool_id = '") +
@@ -316,6 +316,7 @@ namespace crcs
             std::cout << mysql_error(crcs_db) << std::endl;
             return ERR_SEND_QUERY;
         }
+        return 0;
     }
     
     int database::disconnect()

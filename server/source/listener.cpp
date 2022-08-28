@@ -29,12 +29,19 @@ namespace crcs
     
         if((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1)
             return 1;   // ERR_CREATE_SOCKET
+        
+        
+        
         if(bind(sock, (struct sockaddr*)&ADDRESS, sizeof(ADDRESS)) == -1)
-            return 2;   // ERR_BIND_SOCKET
+            return ERR_BIND_SOCKET;
+        
+        timeval tv;
+        tv.tv_sec = 10;
+        
         if(listen(sock, 20) == -1)
-            return 3;   // ERR_LISTEN_SOCKET
+            return ERR_LISTEN_SOCKET;
         if(pthread_create(&accepter_thread, NULL, accepter, this) != 0)
-            return 4;   // ERR_CREATE_ACCEPT_THREAD
+            return ERR_CREATE_ACCEPT_THREAD;
         return 0;
     }
     // Получить первое необработанное соединение

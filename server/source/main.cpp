@@ -98,10 +98,10 @@ void* admin_connection_handler(void* param)
             int i {};
             for(; i < (static_cast<int>(members.size()) - 2); i += 2)
             {
-                resp_data += "{" + members[i] + ", " + members[i+1] + "}" + ", ";
+                resp_data += "{\"hostname\": " + members[i] + ", \"host_id\": " + members[i+1] + "}" + ", ";
             }
             if(members.size() != 0)
-                resp_data += "{" + members[i] + ", " + members[i+1] + "}" + ", ";
+                resp_data += "{\"hostname\": " + members[i] + ", \"host_id\": " + members[i+1] + "}";
             resp_data += "]";
         }
         else if(data["request"] == std::string("DESTROY_POOL"))
@@ -209,16 +209,16 @@ void* admin_connection_handler(void* param)
 
 void* host_connection_handler(void* param)
 {
+    unsigned resp_code;
+    std::string resp_data = "null";
+    
     crcs::host_connection* hst_conn = new crcs::host_connection(*static_cast<int*>(param), DB_HOSTNAME,
                                                                 DB_USERNAME, DB_PASSWORD, DB_DBNAME, DB_PORT);
     Json::Value data;
     Json::Reader reader;
     std::string message;
-    hst_conn->recv_message(message);
+    resp_code = hst_conn->recv_message(message);
     reader.parse(message, data);
-    
-    unsigned resp_code;
-    std::string resp_data = "null";
     
     if(data["op_type"] == std::string("init"))
     {
@@ -254,6 +254,13 @@ void* host_connection_handler(void* param)
                                "\"data\": " + resp_data + "}"; break;
     }
     hst_conn->send_message(response);
+//    char buff;
+//    while(recv(*(int*)param, &buff, 1, MSG_PEEK | MSG_DONTWAIT))
+//    {
+//        if(errno == ENOTCONN)
+//            break;
+//    }
+    pthread_exit(0);
 }
 
 int main()
