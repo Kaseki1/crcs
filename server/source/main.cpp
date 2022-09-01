@@ -255,7 +255,7 @@ void* host_connection_handler(void* param)
     }
     hst_conn->send_message(response);
     if(data["op_type"] == std::string("init"))
-       hst_conn.close_connection();
+       hst_conn->close_connection();
 //    char buff;
 //    while(recv(*(int*)param, &buff, 1, MSG_PEEK | MSG_DONTWAIT))
 //    {
