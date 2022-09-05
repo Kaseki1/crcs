@@ -253,7 +253,8 @@ void* host_connection_handler(void* param)
                                "\"comment\": null, "
                                "\"data\": " + resp_data + "}"; break;
     }
-    hst_conn->send_message(response);
+    if(data["op_type"] != std::string("connect"))
+        hst_conn->send_message(response);
     if(data["op_type"] == std::string("init"))
        hst_conn->close_connection();
 //    char buff;
