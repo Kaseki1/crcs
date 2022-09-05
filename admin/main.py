@@ -1,3 +1,4 @@
+# TODO: Сделать так, чтобы можно было прописывать алиасы для host_id.
 from termcolor import colored
 import getpass
 import socket
@@ -5,12 +6,6 @@ import json
 import os
 import pathlib
 import abc
-
-
-class ConnectionIsNotEstablishedError(Exception):
-    """ Ошибка попытки отправить пакет на сервер,
-    подключение с котороым не было инициализировано
-    """
 
 
 class PacketFormatError(Exception):
@@ -34,7 +29,7 @@ class Session:
      реагирует на ошибки сессий и получает их
      из директории /var/tmp/crcs_session/
      """
-    SESSION_DIR = pathlib.Path("/var/tmp/crcs_session/")
+    SESSION_DIR = pathlib.Path("/var/tmp/crcs_session/")  # TODO: Сделать вариант пути для Windows и MacOS.
 
     if not SESSION_DIR.exists():
         SESSION_DIR.mkdir()
@@ -43,7 +38,7 @@ class Session:
         files_in_session_directory = os.listdir(Session.SESSION_DIR)
 
         if len(files_in_session_directory) > 1:
-            raise SessionDirectoryError("В директории админских сессий было обнаружено более двух файлов.")
+            raise SessionDirectoryError("В директории админских сессий было обнаружено более одного файла.")
 
             # При обнаружении нескольких файлов сессий в директории -
             # удаляет их из директории.
@@ -62,6 +57,12 @@ class Session:
         """ Удаляет файл сессии """
         Session.SESSION_DIR.joinpath(str(self.__sessionuid)).unlink()
 
+    @staticmethod
+    def save_session(session_uid: str):
+        """ Сохраняет файл сессии в директорию админской сессии """
+        with open(Session.SESSION_DIR.joinpath(session_uid), "w") as fp:
+            pass
+
 
 class BasePacket(abc.ABC):
     """ Базовый класс всех пакетов """
@@ -75,30 +76,21 @@ class BasePacket(abc.ABC):
         pass
 
 
-class CommandPacket(BasePacket):
+class UnicastPacket(BasePacket):
     """ Класс пакета команды, которую должен выполнить клиент.
     Используется в методах отправки данных на сервер.
     """
 
-    def __init__(self, command: str = None, pool: int = None, session: Session = None):
+    def __init__(self, command: str = None, receiver: str = None, session: Session = None):
         super().__init__()
 
         if not session:
             session = Session()
 
         self._operation_type = "command"
-        self.__command: str = command      # Команда, которую должен исполнить клиент
-        self.__session: Session = session  # Идентификатор сессии текущего администратора
-        self.__pool: int = pool            # Идентификатор пула хостов
-
-    def set_command(self, command: str) -> None:
-        self.__command = command
-
-    def set_session(self, session: Session) -> None:
-        self.__session = session
-
-    def set_pool(self, pool: int) -> None:
-        self.__pool = pool
+        self.command: str = command      # Команда, которую должен исполнить клиент
+        self.receiver: str = receiver    # Идентификатор хоста
+        self.session: Session = session  # Идентификатор сессии текущего администратора
 
     def convert_to_packet_bytes(self) -> bytes:
         """ Формирует пакет для отправки по сети,
@@ -107,25 +99,73 @@ class CommandPacket(BasePacket):
         packet = {
             "op_type": self._operation_type,
             "command": None,
+            "receiver": None,
             "sessionuid": None,
-            "pooluid": None
+            "pool_id": None
         }
 
         # Далее идет проверка введение полей пакета.
-        if self.__command:
-            packet["command"] = self.__command
+        if self.command:
+            packet["command"] = self.command
         else:
             raise PacketFormatError("Required package parameter \"command\" was not filled.")
 
-        if self.__session:
-            packet["sessionuid"] = self.__session.get_session_uid()
+        if self.session:
+            packet["sessionuid"] = self.session.get_session_uid()
         else:
             raise PacketFormatError("Required package parameter \"sessionuid\" was not filled.")
 
-        if self.__pool:
-            packet["pooluid"] = self.__pool
+        if self.receiver:
+            packet["receiver"] = self.receiver
         else:
-            raise PacketFormatError("Required package parameter \"pooluid\" was not filled.")
+            raise PacketFormatError("Required package parameter \"receiver\" was not filled.")
+
+        return json.dumps(packet).encode("utf8")
+
+
+class BroadcastPacket(BasePacket):
+    """ Класс пакета команды, которую должен выполнить клиент.
+    Используется в методах отправки данных на сервер.
+    """
+
+    def __init__(self, command: str = None, pool_id: int = None, session: Session = None):
+        super().__init__()
+
+        if not session:
+            session = Session()
+
+        self._operation_type = "command"
+        self.command: str = command      # Команда, которую должен исполнить клиент
+        self.session: Session = session  # Идентификатор сессии текущего администратора
+        self.pool_id: int = pool_id      # Идентификатор пула
+
+    def convert_to_packet_bytes(self) -> bytes:
+        """ Формирует пакет для отправки по сети,
+        основанный на json, используя атрибуты текущего
+        экземпляра пакета """
+        packet = {
+            "op_type": self._operation_type,
+            "command": None,
+            "receiver": "broadcast",
+            "sessionuid": None,
+            "pool_id": None
+        }
+
+        # Далее идет проверка введение полей пакета.
+        if self.command:
+            packet["command"] = self.command
+        else:
+            raise PacketFormatError("Required package parameter \"command\" was not filled.")
+
+        if self.session:
+            packet["sessionuid"] = self.session.get_session_uid()
+        else:
+            raise PacketFormatError("Required package parameter \"sessionuid\" was not filled.")
+
+        if self.pool_id:
+            packet["pool_id"] = self.pool_id
+        else:
+            raise PacketFormatError("Required package parameter \"pool_id\" was not filled.")
 
         return json.dumps(packet).encode("utf8")
 
@@ -139,12 +179,8 @@ class AuthPacket(BasePacket):
         super().__init__()
 
         self._operation_type = "auth"
-        self._login: str = login  # Логин личного кабинета администратора
-        self._password: str = password  # Пароль личного кабинета администратора
-
-    def login(self, login: str, password: str) -> None:
-        self._login = login
-        self._password = password
+        self.login: str = login  # Логин личного кабинета администратора
+        self.password: str = password  # Пароль личного кабинета администратора
 
     def convert_to_packet_bytes(self) -> bytes:
         packet_json_format = {
@@ -153,13 +189,13 @@ class AuthPacket(BasePacket):
             "password": None
         }
 
-        if self._login:
-            packet_json_format["login"] = self._login
+        if self.login:
+            packet_json_format["login"] = self.login
         else:
             raise PacketFormatError("Required package parameter \"login\" was not filled.")
 
-        if self._password:
-            packet_json_format["password"] = self._password
+        if self.password:
+            packet_json_format["password"] = self.password
         else:
             raise PacketFormatError("Required package parameter \"password\" was not filled.")
 
@@ -175,16 +211,9 @@ class RegistrationPacket(BasePacket):
         super().__init__()
 
         self._operation_type = "reg"
-        self._login: str = login  # Логин личного кабинета администратора
-        self._password: str = password  # Пароль личного кабинета администратора
-        self._email: str = email  # Почта администратора
-
-    def login(self, login: str, password: str) -> None:
-        self._login = login
-        self._password = password
-
-    def set_email(self, email: str) -> None:
-        self._email = email
+        self.login: str = login        # Логин личного кабинета администратора
+        self.password: str = password  # Пароль личного кабинета администратора
+        self.email: str = email        # Почта администратора
 
     def convert_to_packet_bytes(self) -> bytes:
         packet_json_format = {
@@ -194,18 +223,18 @@ class RegistrationPacket(BasePacket):
             "email": None
         }
 
-        if self._login:
-            packet_json_format["login"] = self._login
+        if self.login:
+            packet_json_format["login"] = self.login
         else:
             raise PacketFormatError("Required package parameter \"login\" was not filled.")
 
-        if self._password:
-            packet_json_format["password"] = self._password
+        if self.password:
+            packet_json_format["password"] = self.password
         else:
             raise PacketFormatError("Required package parameter \"password\" was not filled.")
 
-        if self._email:
-            packet_json_format["email"] = self._email
+        if self.email:
+            packet_json_format["email"] = self.email
         else:
             raise PacketFormatError("Required package parameter \"email\" was not filled.")
 
@@ -217,58 +246,58 @@ class ServerPacket(BasePacket):
      адресованного центральному серверу.
     """
 
-    def __init__(self, request: str = None, session: Session = None):
+    def __init__(self, request: str = None, additional_data: str = None, session: Session = None):
         super().__init__()
 
         if not session:
             session = Session()
 
         self._operation_type = "server"
-        self.__request: str = request
-        self.__session: Session = session
-
-    def set_session(self, session: Session):
-        self.__session = session
-
-    def set_request(self, request: str):
-        self.__request = request
+        self.request: str = request
+        self.session: Session = session
+        self.additional_data: str = additional_data
 
     def convert_to_packet_bytes(self) -> bytes:
         packet_json_format = {
             "op_type": self._operation_type,
             "request": None,
+            "additional_data": self.additional_data,
             "sessionuid": None
         }
 
-        if self.__request:
-            packet_json_format["request"] = self.__request
+        if self.request:
+            packet_json_format["request"] = self.request
         else:
             raise PacketFormatError("Required package parameter \"request\" was not filled.")
 
-        if self.__session:
-            packet_json_format["sessionuid"] = self.__session.get_session_uid()
+        if self.session:
+            packet_json_format["sessionuid"] = self.session.get_session_uid()
         else:
             raise PacketFormatError("Required package parameter \"sessionuid\" was not filled.")
 
         return json.dumps(packet_json_format).encode("utf8")
 
 
-class ServerResponsePacket:
+class ResponseHandler:
     """ ООП представление пакета ответа сервера.
     Возвращается в классе ServerConnection.
     """
     def __init__(self, response: bytes):
         data = json.loads(response)
 
-        self.CODE = data["code"]
         self.COMMENT = data["comment"]
         self.DATA = data["data"]
+
+        if data["code"] == "success":
+            self.IS_SUCCESS = True
+        else:
+            self.IS_SUCCESS = False
 
 
 class ServerConnection:
     """ Класс подключения к серверу """
-    MID_CONN_SERVER_HOST = "3.131.207.170"
-    MID_CONN_SERVER_PORT = 12384
+    MID_CONN_SERVER_HOST = "192.168.1.71"
+    MID_CONN_SERVER_PORT = 9090
     RECV_BUFF_SIZE = 2048
 
     def __init__(self):
@@ -280,15 +309,15 @@ class ServerConnection:
 
         self.__socket.connect((ServerConnection.MID_CONN_SERVER_HOST, ServerConnection.MID_CONN_SERVER_PORT))
 
-    def send_packet(self, packet: BasePacket) -> ServerResponsePacket:
+    def send_packet(self, packet: BasePacket) -> ResponseHandler:
         """ Отправляет пакет с командами.
 
         :param packet - Экземпляр класса CommandPacket,
         предварительно сформированный при помощи его методов.
         """
         self.__socket.send(packet.convert_to_packet_bytes())
-
-        response = ServerResponsePacket(self.__socket.recv(ServerConnection.RECV_BUFF_SIZE))
+        response = ResponseHandler(self.__socket.recv(ServerConnection.RECV_BUFF_SIZE))
+        self.__socket.close()
 
         return response
 
@@ -296,13 +325,156 @@ class ServerConnection:
 def main():
     """ Основное окружение администратора, предназначенное
      для отправки комманд на выполнение хостам пула.
+     Реализация пользовательского интерфейса.
     """
     print(f"\n[{colored('+', 'green')}] Вы успешно вошли в личный кабинет.")
-    print(f"\n[{colored('?', 'yellow')}] Получение данных о хостах, находящихся в пуле...")
+
+    # --СЕКЦИЯ ПЕРЕМЕННЫХ ТЕКУЩЕЙ СЕССИИ--
+    INVITATION = "\n[None]$ "        # Приглашение ввода команды
+    COMMAND_SCOPE = None            # Текущее окружение команд: Unicast, Broadcast, Multicast.
+    COMMAND_TARGET = None           # Цель команды (хост). Нужна в случае с Unicast и Multicast.
+    SAVED_HOST_ID = None            # В эту переменную сохраняется HOST_ID после выполнения команды Unicast.
 
     while True:
-        # TODO: Реализовать интерфейс ввода комманд и дальнейшую их пересылку хосту.
-        pass
+        command = input(INVITATION).strip()
+        connection = ServerConnection()
+
+        # в ветвлении идет обработка команд, которые не должны отсылаться
+        # на сервер или должны формировать пакеты, отличные от пакетов команд
+        # (например пакеты запросов непосредственно на центральный сервер).
+
+        # -------------------------------------------------------------------------------------------------------
+        # [[ Локальные команды ]]
+        if command == "logout":
+            session.remove()
+            print(f"[{colored('?', 'yellow')}] Вы вышли из личного кабинета.\n")
+            exit(0)
+        # -------------------------------------------------------------------------------------------------------
+
+        # -------------------------------------------------------------------------------------------------------
+        # [[ Переключение между режимами Unicast, Broadcast, Multicast ]]
+        # TODO: Заменить механизм Unicast (прохода по двум циклам всех хостов для формирования LOCAL_HOST_UID) на
+        # запрос к серверу HOST_ID_BY_HOSTNAME.
+        if command.startswith("unicast "):
+            COMMAND_TARGET = None
+            target = command.split(" ")[1]
+
+            # формирует LOCAL_HOST_UID
+            response = connection.send_packet(ServerPacket("GET_ADMIN_POOLS"))
+
+            if response.IS_SUCCESS:
+                print(f"[{colored('?', 'yellow')}] Список хостов LOCAL_HOST_UID был успешно обновлен.")
+
+                for pool in response.DATA:
+                    connection = ServerConnection()
+                    pool_hosts = connection.send_packet(ServerPacket("GET_POOL_MEMBERS", additional_data=pool))
+
+                    if pool_hosts.IS_SUCCESS:
+                        for host in pool_hosts.DATA:
+                            if host["hostname"] == target:
+                                COMMAND_TARGET = target
+                                SAVED_HOST_ID = host["host_id"]
+                                COMMAND_SCOPE = "unicast"
+
+                    else:
+                        print(f"[{colored('-', 'red')}] Не удалось получить информацию о пуле №{pool}.")
+            else:
+                print(f"[{colored('-', 'red')}] Ошибка формирования LOCAL_HOST_UID: {response.COMMENT}")
+
+            # Если такой hostname был обнаружен в базе данных, то формирует приглашение.
+            if COMMAND_TARGET:
+                connection = ServerConnection()
+                pwd = connection.send_packet(UnicastPacket("fs pwd", SAVED_HOST_ID))
+
+                if pwd.IS_SUCCESS:
+                    INVITATION = f"\n[{COMMAND_TARGET} {pwd.DATA}]$ "
+                    print(f"[{colored('+', 'green')}] Переключение на \"{COMMAND_TARGET}\" успешно завершено.")
+                else:
+                    print(f"[{colored('-', 'red')}] Ошибка получения актуального пути \"{COMMAND_TARGET}\".")
+
+        elif command.startswith("broadcast "):
+            target = command.split(" ")[1]
+
+            print(f"[{colored('?', 'yellow')}] Получение базы админских пулов...")
+            admin_pools = connection.send_packet(ServerPacket("GET_ADMIN_POOLS"))
+
+            if admin_pools.IS_SUCCESS:
+                print(f"[{colored('+', 'green')}] Транзакция получения успешна.")
+                print(f"[{colored('?', 'yellow')}] Проверка на существование пула в базе.")
+
+                if int(target) in admin_pools.DATA:
+                    COMMAND_SCOPE = "broadcast"
+                    COMMAND_TARGET = None
+                    INVITATION = "\n[broadcast]$ "
+
+                    print(f"[{colored('+', 'green')}] Режим успешно был сменен на BROADCAST.")
+                else:
+                    print(f"[{colored('-', 'red')}] Указаного пула не существует.")
+            else:
+                print(f"[{colored('-', 'red')}] Ошибка транзакции.")
+        # -------------------------------------------------------------------------------------------------------
+
+        # -------------------------------------------------------------------------------------------------------
+        # [[ РЕАЛИЗАЦИЯ УТИЛИТЫ POOL ]]
+        # На эту утилиту не влияет область исполнения команд.
+        elif command == "pool list":
+            pools = connection.send_packet(ServerPacket("GET_ADMIN_POOLS")).DATA
+
+            # получает всех пользователей в полученных пулах и
+            # сортирует их по массиву для вывода информации.
+            for pool in pools:
+                connection = ServerConnection()
+                print(f"[{colored('?', 'yellow')}] Вывод информации об участниках пула №{pool}.")
+                request = ServerPacket("GET_POOL_MEMBERS", additional_data=pool)
+                hosts = connection.send_packet(request).DATA
+
+                if hosts:
+                    for host in hosts:
+                        # содержащий соответствие локального ID хоста, который будет использоваться в командах
+                        # ID, который содержится в базе данных.
+                        print(f"   {host['hostname']}")
+                else:
+                    print("   В данный пул еще никто не вступил ...")
+
+        elif command == "pool create":
+            response = connection.send_packet(ServerPacket("CREATE_POOL"))
+
+            if response.IS_SUCCESS:
+                # TODO: Сделать так, чтобы сервер возвращался в поле DATA код нового созданного пула.
+                print(f"[{colored('+', 'green')}] Был создан пул с номером {response.DATA}")
+            else:
+                print(f"[{colored('-', 'red')}] Ошибка создания пула.")
+
+        elif command == "pool delete ":
+            response = connection.send_packet(ServerPacket("DESTROY_POOL", command.split(' ')[2]))
+
+            if response.IS_SUCCESS:
+                print(f"[{colored('+', 'green')}] Пул был успешно удален.")
+            else:
+                print(f"[{colored('-', 'green')}] Ошибка сервера: {response.COMMENT}")
+
+        elif command.startswith("pool members "):
+            response = connection.send_packet(ServerPacket(f"GET_POOL_MEMBERS:{command.split(' ')[2]}"))
+            print(response.IS_SUCCESS, response.COMMENT, response.DATA, sep="\n")
+        # -------------------------------------------------------------------------------------------------------
+
+        # -------------------------------------------------------------------------------------------------------
+        # [[ РЕАЛИЗАЦИЯ УТИЛИТЫ FS ]]
+        # P.S. Команды утилиты FS не могут использоваться при Broadcast запросах из-за
+        # ненадобности такой реализации. На ПК хостов отличается директория, а вывод команд
+        # cat, pwd.
+        elif command == "fs pwd":
+            if COMMAND_SCOPE == "unicast":
+                request_packet = UnicastPacket("fs pwd", COMMAND_TARGET)
+                response = connection.send_packet(request_packet)
+            else:
+                print(f"[{colored('!', 'red')}] Утилиту \"fs\" возможно использовать только в режиме Unicast.")
+        # -------------------------------------------------------------------------------------------------------
+
+        # В остальном случае, если команда не соответствует
+        # никакой из реализаций утилит: локальная ошибка.
+        else:
+            print(f"[{colored('!', 'red')}] Неизвестная команда. Повторите попытку.")
 
 
 if __name__ == "__main__":
@@ -313,20 +485,21 @@ if __name__ == "__main__":
     
                    @ AUTHORS @
          https://github.com/SepultureSE
-           https://github.com/Kaseki1
-    """)
+           https://github.com/Kaseki1""")
 
     try:
-        # Если ошибка в классе Session не возникает, то переключает на функцию main(),
+        # Если ошибка в классе Session не возникает ошибка об отсутствии файла,
+        # то переключает на функцию main(),
         # где реализуется интерфейс отправки комманд хостам.
-        Session()
+        session = Session()  # <- Глобальная переменная, которая используется в функции main()
         main()
     except SessionDirectoryError as error:
         # если сессия не обнаружена, то обязует зарегистрировать
         # или авторизовать личный кабинет.
-        choice = input(f"[{colored('?', 'yellow')}] Активных сессий не найдено."
+        choice = input(f"\n[{colored('?', 'yellow')}] Активных сессий не найдено."
                        f"\n[{colored('?', 'yellow')}] Войдите в аккаунт(1) или Зарегистрируйтесь(2): ")
 
+        # Реализация ВХОДА в личный кабинет.
         if choice.strip() == "1":
             print(f"[{colored('?', 'yellow')}] Введите данные от вашего личного кабинета.")
 
@@ -338,11 +511,14 @@ if __name__ == "__main__":
                 connection = ServerConnection()
                 response = connection.send_packet(auth_packet)
 
-                if response.CODE == "success":
+                if response.IS_SUCCESS:
+                    Session.save_session(response.DATA)
+                    session = Session()
                     main()
                 else:
                     print(f"\n[{colored('!', 'red')}] Неверный логин или пароль.")
 
+        # Реализация РЕГИСТРАЦИИ личного кабинета.
         elif choice.strip() == "2":
             print(f"[{colored('?', 'yellow')}] Введите данные от вашего личного кабинета.")
 
@@ -357,7 +533,17 @@ if __name__ == "__main__":
                     connection = ServerConnection()
                     response = connection.send_packet(registration_packet)
 
-                    if response.CODE == "success":
+                    if response.IS_SUCCESS:
+                        # После успешной регистрации отсылается пакет аутентификации,
+                        # чтобы получить SESSION UID администратора и сохранить его.
+                        auth_packet = AuthPacket(login, password)
+                        connection = ServerConnection()
+                        response = connection.send_packet(auth_packet)
+
+                        Session.save_session(response.DATA)
+
                         main()
+                    else:
+                        print(f"\n[{colored('!', 'red')}] Ошибка регистрации: {response.COMMENT}")
                 else:
                     print(f"\n[{colored('!', 'red')}] Пароли не совпадают. Повторите введение данных учетной записи.")

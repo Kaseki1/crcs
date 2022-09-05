@@ -1,0 +1,45 @@
+main {
+	margin-top: 80px;
+}
+
+body {
+	font-family: Hack;
+}
+
+.card {
+	margin-top: 16px;
+}
+
+.card-header h2 {
+	font-size: 16pt;
+}
+
+.list-group-item h2 {
+	font-size: 15pt;
+}
+
+div.terminal-command {
+	margin-top: 10px;
+	margin-bottom: 16px;
+	background: #c8d1e0;
+	border: solid #c8d1e0 6px;
+	border-radius: 4px;
+}
+
+.card-body p {
+	margin-top: 16px;
+}
+
+a.download {
+	color: #57709e;
+	text-decoration: underline;
+}
+
+a.nav-button {
+	margin-left: 7px;
+}
+
+.container-my {
+    @extend .container;
+    max-width: 900px;   
+}
