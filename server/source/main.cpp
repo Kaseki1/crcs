@@ -229,7 +229,7 @@ void* host_connection_handler(void* param)
         resp_data = std::string("\"") + resp_data;
         resp_data.push_back('"');
     }
-    else if(data["op_type"] == std::string("connect"))
+    else if(data["op_type"] == std::string("ready"))
     {
         std::string hkey = data["host_id"].asString();
         if(!(resp_code = hst_conn->connect(hkey)))
@@ -253,7 +253,7 @@ void* host_connection_handler(void* param)
                                "\"comment\": null, "
                                "\"data\": " + resp_data + "}"; break;
     }
-    if(data["op_type"] != std::string("connect"))
+    if(data["op_type"] != std::string("ready"))
         hst_conn->send_message(response);
     if(data["op_type"] == std::string("init"))
        hst_conn->close_connection();
