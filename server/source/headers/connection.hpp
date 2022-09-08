@@ -90,6 +90,7 @@ namespace crcs
         virtual int recv_message(std::string &msg)
         {
             char buff[2] {};
+            int err;
 //            pollfd fd;
 //            fd.fd = sock;
 //            fd.events = POLLIN;
@@ -97,10 +98,15 @@ namespace crcs
             do
             {
 //                SSL_read(ssl, buff, 1);
-                recv(sock, buff, 1, 0);
+                err = recv(sock, buff, 1, 0);
                 msg += buff;
-            }while(buff[0] != '}' && buff[0] != '\0');
-            if(buff[0] == '\0')
+            }while(err > 0 && buff[0] != '}' && buff[0] != '\0');
+            while(recv(sock, buff, 1, MSG_PEEK | MSG_DONTWAIT) > 0)
+            {
+                if(buff[0] != '{')
+                    recv(sock, buff, 1, 0);
+            }
+            if(err <= 0)
                 return ERR_INVALID_PACKET;
             return 0;
         }

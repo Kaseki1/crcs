@@ -100,7 +100,12 @@ namespace crcs
     
     int admin_connection::get_pool_members(std::string sid, std::string pid, std::vector<std::string>& members)
     {
-        unsigned err = conn_db.get_pool_members(sid, pid, members);
+        std::vector<std::string> pools;
+        unsigned err = this->get_admin_pools(sid, pools);
+        std::vector<std::string>::iterator it = find(pools.begin(), pools.end(), pid);
+        if(pools.empty() || (it == pools.end() && pools.back() != pid))
+            return ERR_POOL_ACCESS_DENIED;
+        err = conn_db.get_pool_members(sid, pid, members);
         switch(err)
         {
             case ERR_SEND_QUERY: return ERR_DATABASE; break;

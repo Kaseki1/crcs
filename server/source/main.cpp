@@ -98,10 +98,10 @@ void* admin_connection_handler(void* param)
             int i {};
             for(; i < (static_cast<int>(members.size()) - 2); i += 2)
             {
-                resp_data += "{\"hostname\": " + members[i] + ", \"host_id\": " + members[i+1] + "}" + ", ";
+                resp_data += "{\"hostname\": \"" + members[i] + "\", \"host_id\": \"" + members[i+1] + "\"}" + ", ";
             }
             if(members.size() != 0)
-                resp_data += "{\"hostname\": " + members[i] + ", \"host_id\": " + members[i+1] + "}";
+                resp_data += "{\"hostname\": \"" + members[i] + "\", \"host_id\": \"" + members[i+1] + "\"}";
             resp_data += "]";
         }
         else if(data["request"] == std::string("DESTROY_POOL"))
@@ -129,7 +129,7 @@ void* admin_connection_handler(void* param)
                         if((*it)->get_pool_id() == pool)
                         {
                             std::string packet = static_cast<std::string>("{\"op_type\": \"command\", ") +
-                                                 "\"command\": " + command + "\"}";
+                                                 "\"command\": \"" + command + "\"}";
                             (*it)->send_message(packet);
                         }
                         it++;
@@ -218,6 +218,11 @@ void* host_connection_handler(void* param)
     Json::Reader reader;
     std::string message;
     resp_code = hst_conn->recv_message(message);
+    if(resp_code == crcs::ERR_INVALID_PACKET)
+    {
+        hst_conn->close_connection();
+        pthread_exit(0);
+    }
     reader.parse(message, data);
     
     if(data["op_type"] == std::string("init"))
@@ -257,12 +262,12 @@ void* host_connection_handler(void* param)
         hst_conn->send_message(response);
     if(data["op_type"] == std::string("init"))
        hst_conn->close_connection();
-//    char buff;
-//    while(recv(*(int*)param, &buff, 1, MSG_PEEK | MSG_DONTWAIT))
-//    {
-//        if(errno == ENOTCONN)
-//            break;
-//    }
+    char buff;
+    while(recv(*(int*)param, &buff, 1, MSG_PEEK) > 0);
+    std::cout << "Disconnected" << std::endl;
+    active_hosts.erase(find(active_hosts.begin(), active_hosts.end(), hst_conn));
+    hst_conn->close_connection();
+    delete hst_conn;
     pthread_exit(0);
 }
 
