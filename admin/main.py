@@ -296,7 +296,7 @@ class ResponseHandler:
 
 class ServerConnection:
     """ Класс подключения к серверу """
-    MID_CONN_SERVER_HOST = "192.168.1.71"
+    MID_CONN_SERVER_HOST = "127.0.0.1"
     MID_CONN_SERVER_PORT = 9090
     RECV_BUFF_SIZE = 2048
 

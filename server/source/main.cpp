@@ -263,11 +263,14 @@ void* host_connection_handler(void* param)
     if(data["op_type"] == std::string("init"))
        hst_conn->close_connection();
     char buff;
-    while(recv(*(int*)param, &buff, 1, MSG_PEEK) > 0);
-    std::cout << "Disconnected" << std::endl;
-    active_hosts.erase(find(active_hosts.begin(), active_hosts.end(), hst_conn));
-    hst_conn->close_connection();
-    delete hst_conn;
+    if(data["op_type"] != std::string("init"))
+    {
+        while(recv(*(int*)param, &buff, 1, MSG_PEEK) > 0);
+        std::cout << "Disconnected" << std::endl;
+        active_hosts.erase(find(active_hosts.begin(), active_hosts.end(), hst_conn));
+        hst_conn->close_connection();
+        delete hst_conn;
+    }
     pthread_exit(0);
 }
 

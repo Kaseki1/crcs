@@ -1,5 +1,5 @@
-*/nbproject
-*/*.sql
-*/*.o
+*nbproject
+*.sql
+*.o
 server/release
 server/debug
