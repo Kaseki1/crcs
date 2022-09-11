@@ -26,7 +26,8 @@ def get_file_list() -> list:
             result_dir_data.append({
                 "filename": file,
                 "path": os.path.abspath(file),
-                "is_file": True
+                "is_file": True,
+                "size": "DIR"
             })
 
     for file in os.listdir():
@@ -34,10 +35,16 @@ def get_file_list() -> list:
             result_dir_data.append({
                 "filename": file,
                 "path": os.path.abspath(file),
-                "is_file": True
+                "is_file": True,
+                "size": str(round(os.path.getsize(file) / 2048, 2)) + " MB"
             })
 
     return result_dir_data
+
+
+def remove_file(path: str) -> None:
+    """ Удаляет данный файл из директории """
+    os.remove(path)
 
 
 def get_file_content(path) -> str:

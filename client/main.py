@@ -74,7 +74,7 @@ class ServerConnection:
     """ Класс подключения к серверу """
     MID_CONN_SERVER_HOST = "192.168.1.71"
     MID_CONN_SERVER_PORT = 9091
-    RECV_BUFF_SIZE = 2048
+    RECV_BUFF_SIZE = 16384
     TERMINATOR = b"\x04"
 
     def __init__(self):
@@ -233,16 +233,16 @@ def main_handler(command: str):
         return ResponsePacket(filesystem.get_current_path())
 
     elif command.startswith("fs cd "):
-        try:
-            return ResponsePacket(filesystem.change_path(command.split(" ")[2]))
-        except FileNotFoundError:
-            return ResponsePacket(is_success=False, comment="No such file ro directory.")
+        return ResponsePacket(filesystem.change_path(command[6::]))
 
     elif command == "fs ls":
         return ResponsePacket(filesystem.get_file_list())
 
     elif command.startswith("fs cat "):
-        return ResponsePacket(filesystem.get_file_content(command.split(" ")[2]))
+        return ResponsePacket(filesystem.get_file_content(command[7::]))
+
+    elif command.startswith("fs rm "):
+        return ResponsePacket(filesystem.remove_file(command[6::]))
     # ---------------------
 
     # Если команда не была найдена/реализована, то отправляется код ошибки.
