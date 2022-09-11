@@ -1,10 +1,11 @@
+#!/usr/bin/python3
 from clientlib import filesystem
 from termcolor import colored
-import getpass
 import pathlib
 import socket
 import abc
 import json
+import sys
 import os
 
 
@@ -249,34 +250,47 @@ def main_handler(command: str):
 
 
 if __name__ == "__main__":
-    # TODO: Реализовать клиентский GUI и демонизацию процесса.
-    while True:
-        command = input("[main] ").strip()
-
-        if command == "logout":
-            try:
-                host_file = HostUIDFile()
-                host_file.remove()
-                print(f"[{colored('+', 'green')}] Пул успешно покинут.")
-            except HostUIDDirectoryError:
-                print(f"[{colored('-', 'red')}] Вы не вступили ни в один пул.")
-
-        elif command.startswith("connect "):
+    try:
+        if sys.argv[1] == "connect":
             connection = ServerConnection()
-            try:
-                pool_id = command.split(" ")[1]
-                result = connection.init_pool(int(pool_id))
+            result = connection.init_pool(int(sys.argv[2]))
 
-                if result:
-                    print(f"[{colored('+', 'green')}] Вы успешно вступили в пул.")
-                else:
-                    print(f"[{colored('-', 'red')}] Ошибка вступления в пул.")  # TODO: Сделать комментарий от сервера.
-            except PoolAlreadyInit:
-                print(f"[{colored('-', 'red')}] Вы уже вступили в пул. Файл host_id был найден в директории.")
+            if result:
+                print(f"[{colored('+', 'green')}] Вы успешно вступили в пул.\n")
+            else:
+                print(f"[{colored('-', 'red')}] Ошибка вступления в пул.\n")
 
-        elif command == "start":
+        elif sys.argv[1] == "logout":
+            host_file = HostUIDFile()
+            host_file.remove()
+            print(f"[{colored('+', 'green')}] Пул успешно покинут.\n")
+
+        elif sys.argv[1] == "start":
             connection = ServerConnection()
             connection.start_session()
 
+            print(f"[{colored('+', 'green')}] Сессия обработки команд успешно запущена ...\n")
+
             while True:
                 connection.handle_commands(main_handler)
+
+        elif sys.argv[1] == "--help":
+            print(f"""[{colored('?', 'yellow')}] Список аргументов админской панели.
+Последнее обновление: 12.09.2022\n
+* connect [pool_id] - Подключается к пулу с номером, указанным в pool_id.
+* start - Начинает сессию обработки админских команд.
+* logout - Выход из пула.
+""")
+
+        else:
+            print(f"[{colored('-', 'red')}] Аргумент команды был введен некорректно. "
+                  f"Для справки воспользуйтесь опцией --help\n")
+    except IndexError:
+        print(f"[{colored('-', 'red')}] Аргумент команды был введен некорректно. "
+              f"Для справки воспользуйтесь опцией --help\n")
+    except PoolAlreadyInit:
+        print(f"[{colored('-', 'red')}] Вы уже вступили в пул. Файл host_id был найден в директории.\n")
+    except HostUIDDirectoryError:
+        print(f"[{colored('-', 'red')}] Вы не вступили ни в один пул.\n")
+    except ConnectionRefusedError:
+        print(f"[{colored('-', 'red')}] Подключение было разорвано центральным сервером.\n")
