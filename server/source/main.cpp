@@ -113,14 +113,14 @@ void* admin_connection_handler(void* param)
     {
         std::string command = data["command"].asString();
         std::string sid = data["sessionuid"].asString();
-        std::string reciever = data["reciever"].asString();
-        std::string pool = data["pool"].asString();
+        std::string receiver = data["receiver"].asString();
+        std::string pool = data["pool_id"].asString();
         std::vector<std::string> pools;
         response = adm_conn.get_admin_pools(sid, pools);
-        if(reciever == std::string("broadcast"))
+        if(receiver == std::string("broadcast"))
         {
             std::vector<std::string>::iterator p = find(pools.begin(), pools.end(), pool);
-            if(pools.end() != p || pools.back() == pool)
+            if(!pools.empty() && (pools.end() != p || pools.back() == pool))
             {
                 std::list<crcs::host_connection*>::iterator it=active_hosts.begin();
                 if(!active_hosts.empty())
@@ -141,7 +141,7 @@ void* admin_connection_handler(void* param)
         }
         else
         {
-            std::string hkey = data["reciever"].asString();
+            std::string hkey = data["receiver"].asString();
             std::list<crcs::host_connection*>::iterator it=active_hosts.begin();
             if(!active_hosts.empty() && !pools.empty())
                 do
@@ -149,7 +149,7 @@ void* admin_connection_handler(void* param)
                     if((*it)->get_host_key() == hkey)
                     {
                         std::string packet = static_cast<std::string>("{\"op_type\": \"command\", ") +
-                                             "\"command\": " + command + "\", \"verbose\": \"true\"}";
+                                             "\"command\": \"" + command + "\", \"verbose\": \"true\"}";
                         (*it)->send_message(packet);
                         packet = "";
                         (*it)->recv_message(packet);
@@ -199,8 +199,8 @@ void* admin_connection_handler(void* param)
                                "\"data\": " + resp_data + "}"; break;
         default: resp = "No response";
     }
-    
-    adm_conn.send_message(resp);
+    if(data["op_type"] != std::string("command") || data["reciever"] == std::string("broadcast"))
+        adm_conn.send_message(resp);
     
     adm_conn.close_connection();
     delete static_cast<int*>(param);
@@ -249,6 +249,9 @@ void* host_connection_handler(void* param)
             response = static_cast<std::string>("{\"code\": \"error\", ") +
                                "\"comment\": \"Invalid host key\", "
                                "\"data\": " + resp_data + "}"; break;
+            hst_conn->send_message(response);
+            hst_conn->close_connection();
+            pthread_exit(0);
         case crcs::ERR_DATABASE:
             response = static_cast<std::string>("{\"code\": \"error\", ") +
                                "\"comment\": \"Error in database\", "

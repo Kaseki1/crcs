@@ -99,14 +99,15 @@ namespace crcs
             {
 //                SSL_read(ssl, buff, 1);
                 err = recv(sock, buff, 1, 0);
-                msg += buff;
-            }while(err > 0 && buff[0] != '}' && buff[0] != '\0');
+                if(buff[0] != 4)
+                    msg += buff;
+            }while(err > 0 && buff[0] != 4 && buff[0] != '\0');
             while(recv(sock, buff, 1, MSG_PEEK | MSG_DONTWAIT) > 0)
             {
                 if(buff[0] != '{')
                     recv(sock, buff, 1, 0);
             }
-            if(err <= 0)
+            if(err <= 0 || (msg[0] != '{' && msg[msg.length()-1] != '}'))
                 return ERR_INVALID_PACKET;
             return 0;
         }
