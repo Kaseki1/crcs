@@ -74,6 +74,7 @@ class ServerConnection:
     MID_CONN_SERVER_HOST = "192.168.1.71"
     MID_CONN_SERVER_PORT = 9091
     RECV_BUFF_SIZE = 2048
+    TERMINATOR = b"\x04"
 
     def __init__(self):
         self.__socket = socket.socket(
@@ -97,7 +98,7 @@ class ServerConnection:
             raise PoolAlreadyInit("Pool already init.")
         except HostUIDDirectoryError:
             init_packet = InitPacket(pool_uid)
-            self.__socket.send(init_packet.convert_to_packet_bytes())
+            self.__socket.send(init_packet.convert_to_packet_bytes() + ServerConnection.TERMINATOR)
             result = ServerResponse(self.__socket.recv(ServerConnection.RECV_BUFF_SIZE))
             HostUIDFile.save_host_id(result.DATA)
             self.__socket.close()
@@ -105,7 +106,7 @@ class ServerConnection:
             return result.CODE
 
     def start_session(self):
-        self.__socket.send(ReadyPacket().convert_to_packet_bytes())
+        self.__socket.send(ReadyPacket().convert_to_packet_bytes() + ServerConnection.TERMINATOR)
 
     def handle_commands(self, handler) -> None:
         """ После установленного постоянного подключения принимает
@@ -116,7 +117,11 @@ class ServerConnection:
             command = json.loads(data)["command"]
             print(f"[?] Получен запрос: {command}")
 
-            self.__socket.send(handler(command).convert_to_packet_bytes())
+            handled_command = handler(command)
+            print(handled_command.convert_to_packet_bytes())
+            print()
+
+            self.__socket.send(handled_command.convert_to_packet_bytes() + ServerConnection.TERMINATOR)
 
 
 class BasePacket(abc.ABC):

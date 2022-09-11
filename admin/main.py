@@ -299,6 +299,7 @@ class ServerConnection:
     MID_CONN_SERVER_HOST = "192.168.1.71"
     MID_CONN_SERVER_PORT = 9090
     RECV_BUFF_SIZE = 2048
+    TERMINATOR = b"\x04"
 
     def __init__(self):
         self.__socket = socket.socket(
@@ -315,7 +316,7 @@ class ServerConnection:
         :param packet - Экземпляр класса CommandPacket,
         предварительно сформированный при помощи его методов.
         """
-        self.__socket.send(packet.convert_to_packet_bytes())
+        self.__socket.send(packet.convert_to_packet_bytes() + ServerConnection.TERMINATOR)
         response = self.__socket.recv(ServerConnection.RECV_BUFF_SIZE)
         packet = ResponseHandler(response)
         self.__socket.close()
@@ -338,8 +339,6 @@ def main():
 
     while True:
         command = input(INVITATION).strip()
-        connection = ServerConnection()
-
         # в ветвлении идет обработка команд, которые не должны отсылаться
         # на сервер или должны формировать пакеты, отличные от пакетов команд
         # (например пакеты запросов непосредственно на центральный сервер).
@@ -357,6 +356,7 @@ def main():
         # TODO: Заменить механизм Unicast (прохода по двум циклам всех хостов для формирования LOCAL_HOST_UID) на
         # запрос к серверу HOST_ID_BY_HOSTNAME.
         if command.startswith("unicast "):
+            connection = ServerConnection()
             target = command.split(" ")[1]
 
             pools = connection.send_packet(ServerPacket(
@@ -387,6 +387,7 @@ def main():
                     print(f"[{colored('-', 'red')}] Хостнейм не был найден.")
 
         elif command.startswith("broadcast "):
+            connection = ServerConnection()
             target = command.split(" ")[1]
 
             print(f"[{colored('?', 'yellow')}] Получение базы админских пулов...")
@@ -412,6 +413,7 @@ def main():
         # [[ РЕАЛИЗАЦИЯ УТИЛИТЫ POOL ]]
         # На эту утилиту не влияет область исполнения команд.
         elif command == "pool members":
+            connection = ServerConnection()
             pools = connection.send_packet(ServerPacket("GET_ADMIN_POOLS")).DATA
 
             # получает всех пользователей в полученных пулах и
@@ -431,6 +433,7 @@ def main():
                     print("   В данный пул еще никто не вступил ...")
 
         elif command == "pool create":
+            connection = ServerConnection()
             response = connection.send_packet(ServerPacket("CREATE_POOL"))
 
             if response.IS_SUCCESS:
@@ -440,6 +443,7 @@ def main():
                 print(f"[{colored('-', 'red')}] Ошибка создания пула.")
 
         elif command == "pool delete ":
+            connection = ServerConnection()
             response = connection.send_packet(ServerPacket("DESTROY_POOL", command.split(' ')[2]))
 
             if response.IS_SUCCESS:
@@ -448,6 +452,7 @@ def main():
                 print(f"[{colored('-', 'green')}] Ошибка сервера: {response.COMMENT}")
 
         elif command.startswith("pool members "):
+            connection = ServerConnection()
             response = connection.send_packet(ServerPacket(f"GET_POOL_MEMBERS:{command.split(' ')[2]}"))
         # -------------------------------------------------------------------------------------------------------
 
@@ -459,16 +464,19 @@ def main():
         elif command.startswith("fs "):
             if COMMAND_SCOPE == "unicast":
                 if command == "fs pwd":
+                    connection = ServerConnection()
                     request_packet = UnicastPacket("fs pwd", SAVED_HOST_ID)
                     response = connection.send_packet(request_packet).DATA
                     print(f"[{colored('?', 'yellow')}] Текущий путь: {response}\n")
 
                 elif command.startswith("fs cd "):
+                    connection = ServerConnection()
                     request_packet = UnicastPacket(command, SAVED_HOST_ID)
                     response = connection.send_packet(request_packet).DATA
                     INVITATION = f"[{COMMAND_TARGET} {response}] "
 
                 elif command == "fs ls":
+                    connection = ServerConnection()
                     request_packet = UnicastPacket(command, SAVED_HOST_ID)
                     response = connection.send_packet(request_packet).DATA
 
@@ -481,6 +489,8 @@ def main():
                         print(filename)
 
                     print()
+                else:
+                    print(f"[{colored('!', 'red')}] Неизвестная команда. Повторите попытку.")
             else:
                 print(f"[{colored('!', 'red')}] Утилиту \"fs\" возможно использовать только в режиме Unicast.")
         # -------------------------------------------------------------------------------------------------------
