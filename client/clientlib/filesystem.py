@@ -6,9 +6,10 @@ def get_current_path() -> str:
     return os.getcwd()
 
 
-def change_path(path: str) -> None:
+def change_path(path: str) -> str:
     """ Меняет текущий путь скрипта """
     os.chdir(path)
+    return os.getcwd()
 
 
 def get_file_list() -> list:

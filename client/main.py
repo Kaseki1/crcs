@@ -93,34 +93,30 @@ class ServerConnection:
         # x------------------------------------x
         try:
             HostUIDFile()
+            self.__socket.close()
             raise PoolAlreadyInit("Pool already init.")
         except HostUIDDirectoryError:
             init_packet = InitPacket(pool_uid)
             self.__socket.send(init_packet.convert_to_packet_bytes())
             result = ServerResponse(self.__socket.recv(ServerConnection.RECV_BUFF_SIZE))
             HostUIDFile.save_host_id(result.DATA)
+            self.__socket.close()
 
             return result.CODE
 
-    def start_session(self) -> None:
-        """ Отправляет пакет подключения к пулу на сервер.
-        Нужен для того, чтобы на сервере обновлялся IP адрес в БД,
-        на который нужно пересылать команды. Также, сообщает серверу о
-        готовности принимать команды, в следствие чего хост впадает в
-        бесконечное ожидание.
-        """
-        packet = ReadyPacket()
-        self.__socket.send(packet.convert_to_packet_bytes())
+    def start_session(self):
+        self.__socket.send(ReadyPacket().convert_to_packet_bytes())
 
-    def handle_command(self, handler) -> None:
+    def handle_commands(self, handler) -> None:
         """ После установленного постоянного подключения принимает
          команды от администратора и возвращает результат функции-обработчика.
          """
-        data = self.__socket.recv(ServerConnection.RECV_BUFF_SIZE)
-        print(json.loads(data))
-        command = json.loads(data)["command"]
+        while True:
+            data = self.__socket.recv(ServerConnection.RECV_BUFF_SIZE)
+            command = json.loads(data)["command"]
+            print(f"[?] Получен запрос: {command}")
 
-        self.__socket.send(handler(command).convert_to_packet_bytes())
+            self.__socket.send(handler(command).convert_to_packet_bytes())
 
 
 class BasePacket(abc.ABC):
@@ -211,8 +207,6 @@ class ResponsePacket(BasePacket):
             "data": self.DATA
         }
 
-        # TODO: Сделать проверку на наличие данных полей в экземпляре.
-
         return json.dumps(packet_json_format).encode("utf8")
 
 
@@ -230,7 +224,7 @@ def main_handler(command: str):
     """ Обработчик команд администратора """
     # [[ УТИЛИТА FS ]]
     if command == "fs pwd":
-        return ResponsePacket(filesystem.get_current_path(), comment="Путь изменен: ")
+        return ResponsePacket(filesystem.get_current_path())
 
     elif command.startswith("fs cd "):
         try:
@@ -253,7 +247,6 @@ if __name__ == "__main__":
     # TODO: Реализовать клиентский GUI и демонизацию процесса.
     while True:
         command = input("[main] ").strip()
-        connection = ServerConnection()
 
         if command == "logout":
             try:
@@ -264,6 +257,7 @@ if __name__ == "__main__":
                 print(f"[{colored('-', 'red')}] Вы не вступили ни в один пул.")
 
         elif command.startswith("connect "):
+            connection = ServerConnection()
             try:
                 pool_id = command.split(" ")[1]
                 result = connection.init_pool(int(pool_id))
@@ -280,4 +274,4 @@ if __name__ == "__main__":
             connection.start_session()
 
             while True:
-                connection.handle_command(main_handler)
+                connection.handle_commands(main_handler)

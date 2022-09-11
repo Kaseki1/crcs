@@ -296,7 +296,7 @@ class ResponseHandler:
 
 class ServerConnection:
     """ Класс подключения к серверу """
-    MID_CONN_SERVER_HOST = "127.0.0.1"
+    MID_CONN_SERVER_HOST = "192.168.1.71"
     MID_CONN_SERVER_PORT = 9090
     RECV_BUFF_SIZE = 2048
 
@@ -316,10 +316,11 @@ class ServerConnection:
         предварительно сформированный при помощи его методов.
         """
         self.__socket.send(packet.convert_to_packet_bytes())
-        response = ResponseHandler(self.__socket.recv(ServerConnection.RECV_BUFF_SIZE))
+        response = self.__socket.recv(ServerConnection.RECV_BUFF_SIZE)
+        packet = ResponseHandler(response)
         self.__socket.close()
 
-        return response
+        return packet
 
 
 def main():
@@ -356,41 +357,34 @@ def main():
         # TODO: Заменить механизм Unicast (прохода по двум циклам всех хостов для формирования LOCAL_HOST_UID) на
         # запрос к серверу HOST_ID_BY_HOSTNAME.
         if command.startswith("unicast "):
-            COMMAND_TARGET = None
             target = command.split(" ")[1]
 
-            # формирует LOCAL_HOST_UID
-            response = connection.send_packet(ServerPacket("GET_ADMIN_POOLS"))
+            pools = connection.send_packet(ServerPacket(
+                request="GET_ADMIN_POOLS"
+            )).DATA
 
-            if response.IS_SUCCESS:
-                print(f"[{colored('?', 'yellow')}] Список хостов LOCAL_HOST_UID был успешно обновлен.")
-
-                for pool in response.DATA:
-                    connection = ServerConnection()
-                    pool_hosts = connection.send_packet(ServerPacket("GET_POOL_MEMBERS", additional_data=pool))
-
-                    if pool_hosts.IS_SUCCESS:
-                        for host in pool_hosts.DATA:
-                            if host["hostname"] == target:
-                                COMMAND_TARGET = target
-                                SAVED_HOST_ID = host["host_id"]
-                                COMMAND_SCOPE = "unicast"
-
-                    else:
-                        print(f"[{colored('-', 'red')}] Не удалось получить информацию о пуле №{pool}.")
-            else:
-                print(f"[{colored('-', 'red')}] Ошибка формирования LOCAL_HOST_UID: {response.COMMENT}")
-
-            # Если такой hostname был обнаружен в базе данных, то формирует приглашение.
-            if COMMAND_TARGET:
+            for pool in pools:
                 connection = ServerConnection()
-                pwd = connection.send_packet(UnicastPacket("fs pwd", SAVED_HOST_ID))
+                pool_members = connection.send_packet(ServerPacket(
+                    request="GET_POOL_MEMBERS",
+                    additional_data=pool
+                )).DATA
 
-                if pwd.IS_SUCCESS:
-                    INVITATION = f"\n[{COMMAND_TARGET} {pwd.DATA}]$ "
-                    print(f"[{colored('+', 'green')}] Переключение на \"{COMMAND_TARGET}\" успешно завершено.")
+                for member in pool_members:
+                    if member["hostname"] == target:
+                        COMMAND_SCOPE = "unicast"
+                        COMMAND_TARGET = member["hostname"]
+                        SAVED_HOST_ID = member["host_id"]
+
+                        connection = ServerConnection()
+                        current_path = connection.send_packet(UnicastPacket("fs pwd", SAVED_HOST_ID)).DATA
+
+                        INVITATION = f"[{COMMAND_TARGET} {current_path}] "
+                        print(f"[{colored('+', 'green')}] Режим переключен на Unicast: {COMMAND_TARGET}\n")
+                        break
                 else:
-                    print(f"[{colored('-', 'red')}] Ошибка получения актуального пути \"{COMMAND_TARGET}\".")
+                    # если не найдено, то сообщает об ошибке поиска.
+                    print(f"[{colored('-', 'red')}] Хостнейм не был найден.")
 
         elif command.startswith("broadcast "):
             target = command.split(" ")[1]
@@ -417,7 +411,7 @@ def main():
         # -------------------------------------------------------------------------------------------------------
         # [[ РЕАЛИЗАЦИЯ УТИЛИТЫ POOL ]]
         # На эту утилиту не влияет область исполнения команд.
-        elif command == "pool list":
+        elif command == "pool members":
             pools = connection.send_packet(ServerPacket("GET_ADMIN_POOLS")).DATA
 
             # получает всех пользователей в полученных пулах и
@@ -455,7 +449,6 @@ def main():
 
         elif command.startswith("pool members "):
             response = connection.send_packet(ServerPacket(f"GET_POOL_MEMBERS:{command.split(' ')[2]}"))
-            print(response.IS_SUCCESS, response.COMMENT, response.DATA, sep="\n")
         # -------------------------------------------------------------------------------------------------------
 
         # -------------------------------------------------------------------------------------------------------
@@ -463,10 +456,31 @@ def main():
         # P.S. Команды утилиты FS не могут использоваться при Broadcast запросах из-за
         # ненадобности такой реализации. На ПК хостов отличается директория, а вывод команд
         # cat, pwd.
-        elif command == "fs pwd":
+        elif command.startswith("fs "):
             if COMMAND_SCOPE == "unicast":
-                request_packet = UnicastPacket("fs pwd", COMMAND_TARGET)
-                response = connection.send_packet(request_packet)
+                if command == "fs pwd":
+                    request_packet = UnicastPacket("fs pwd", SAVED_HOST_ID)
+                    response = connection.send_packet(request_packet).DATA
+                    print(f"[{colored('?', 'yellow')}] Текущий путь: {response}\n")
+
+                elif command.startswith("fs cd "):
+                    request_packet = UnicastPacket(command, SAVED_HOST_ID)
+                    response = connection.send_packet(request_packet).DATA
+                    INVITATION = f"[{COMMAND_TARGET} {response}] "
+
+                elif command == "fs ls":
+                    request_packet = UnicastPacket(command, SAVED_HOST_ID)
+                    response = connection.send_packet(request_packet).DATA
+
+                    for file in response:
+                        if file["is_file"]:
+                            filename = file["filename"]
+                        else:
+                            filename = colored(file["filename"], "orange")
+
+                        print(filename)
+
+                    print()
             else:
                 print(f"[{colored('!', 'red')}] Утилиту \"fs\" возможно использовать только в режиме Unicast.")
         # -------------------------------------------------------------------------------------------------------
