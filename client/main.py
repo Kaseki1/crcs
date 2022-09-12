@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-from clientlib import filesystem
+import clientlib
 from termcolor import colored
 import pathlib
 import socket
@@ -109,6 +109,13 @@ class ServerConnection:
     def start_session(self):
         self.__socket.send(ReadyPacket().convert_to_packet_bytes() + ServerConnection.TERMINATOR)
 
+    def logout(self):
+        """ Инициирует выход из пула """
+        packet = LeavePoolPacket()
+        self.__socket.send(packet.convert_to_packet_bytes())
+        host_file = HostUIDFile()
+        host_file.remove()
+
     def handle_commands(self, handler) -> None:
         """ После установленного постоянного подключения принимает
          команды от администратора и возвращает результат функции-обработчика.
@@ -164,6 +171,31 @@ class InitPacket(BasePacket):
         return json.dumps(packet_json_format).encode("utf8")
 
 
+class LeavePoolPacket(BasePacket):
+    """ Реализация пакета выхода из пула. """
+    def __init__(self, host_id: HostUIDFile = None):
+        super().__init__()
+
+        self._operation_type = "del"
+        self.host_id: HostUIDFile = host_id
+
+        if not host_id:
+            self.host_id = HostUIDFile()
+
+    def convert_to_packet_bytes(self) -> bytes:
+        packet_json_format = {
+            "op_type": self._operation_type,
+            "host_id": None
+        }
+
+        if self.host_id:
+            packet_json_format["host_id"] = self.host_id.get_host_id()
+        else:
+            raise PacketFormatError("Required package parameter \"pool_id\" was not filled.")
+
+        return json.dumps(packet_json_format).encode("utf8")
+
+
 class ReadyPacket(BasePacket):
     """ Реализация пакета подключения к серверу. Отправляется каждый
      раз, когда клиент подключается к серверу.
@@ -179,7 +211,7 @@ class ReadyPacket(BasePacket):
 
     def convert_to_packet_bytes(self) -> bytes:
         packet_json_format = {
-            "op_type": "ready",
+            "op_type": self._operation_type,
             "host_id": None
         }
 
@@ -228,22 +260,23 @@ class ServerResponse:
 
 def main_handler(command: str):
     """ Обработчик команд администратора """
+    # --------------------------------------------------------------------
     # [[ УТИЛИТА FS ]]
     if command == "fs pwd":
-        return ResponsePacket(filesystem.get_current_path())
+        return ResponsePacket(clientlib.get_current_path())
 
     elif command.startswith("fs cd "):
-        return ResponsePacket(filesystem.change_path(command[6::]))
+        return ResponsePacket(clientlib.change_path(command[6::]))
 
     elif command == "fs ls":
-        return ResponsePacket(filesystem.get_file_list())
+        return ResponsePacket(clientlib.get_file_list())
 
     elif command.startswith("fs cat "):
-        return ResponsePacket(filesystem.get_file_content(command[7::]))
+        return ResponsePacket(clientlib.get_file_content(command[7::]))
 
     elif command.startswith("fs rm "):
-        return ResponsePacket(filesystem.remove_file(command[6::]))
-    # ---------------------
+        return ResponsePacket(clientlib.remove_file(command[6::]))
+    # --------------------------------------------------------------------
 
     # Если команда не была найдена/реализована, то отправляется код ошибки.
     return ResponsePacket(is_success=False, comment="Неизвестная команда.")
@@ -261,8 +294,8 @@ if __name__ == "__main__":
                 print(f"[{colored('-', 'red')}] Ошибка вступления в пул.\n")
 
         elif sys.argv[1] == "logout":
-            host_file = HostUIDFile()
-            host_file.remove()
+            connection = ServerConnection()
+            connection.logout()
             print(f"[{colored('+', 'green')}] Пул успешно покинут.\n")
 
         elif sys.argv[1] == "start":

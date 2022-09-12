@@ -1,6 +1,7 @@
 # TODO: Сделать так, чтобы можно было прописывать алиасы для host_id.
 import tabulate
 from termcolor import colored
+import pickle
 import getpass
 import socket
 import json
@@ -373,6 +374,8 @@ def main():
 * fs ls - Возвращает список всех файлов в текущем каталоге. 
 * fs rm (path) - Удаляет файл, находящийся по адресу (path).
 * fs cat (path) - Возвращает содержимое файла, находящегося по адресу (path).
+
+[[ КОМАНДЫ УТИЛИТЫ "TRANSFER" ]]
 """)
         # -------------------------------------------------------------------------------------------------------
 
@@ -527,6 +530,31 @@ def main():
                     print(f"[{colored('!', 'red')}] Неизвестная команда. Повторите попытку.\n")
             else:
                 print(f"[{colored('!', 'red')}] Утилиту \"fs\" возможно использовать только в режиме Unicast.")
+        # -------------------------------------------------------------------------------------------------------
+
+        # -------------------------------------------------------------------------------------------------------
+        # [[ РЕАЛИЗАЦИЯ УТИЛИТЫ "TRANSFER" ]]
+        elif command.startswith("trans put "):
+            path = command[10::]
+
+            with open(path, "rb") as fp:
+                content = fp.read(ServerConnection.RECV_BUFF_SIZE)
+
+            # TODO: Изменить этот колхоз.
+            request_packet = UnicastPacket(command + f"||{pickle.dumps(content)}", SAVED_HOST_ID)
+            connection = ServerConnection()
+            response = connection.send_packet(request_packet)
+
+        elif command.startswith("trans get "):
+            target = command[10::]
+            connection = ServerConnection()
+            request_packet = UnicastPacket(command, SAVED_HOST_ID)
+            response = connection.send_packet(request_packet)
+
+            with open(target, "wb") as fp:
+                fp.write(pickle.loads(response.DATA.encode()))
+
+            print(f"[{colored('+', 'green')}] Транзакция передачи файла успешно завершена.\n")
         # -------------------------------------------------------------------------------------------------------
 
         # В остальном случае, если команда не соответствует
