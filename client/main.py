@@ -112,7 +112,7 @@ class ServerConnection:
     def logout(self):
         """ Инициирует выход из пула """
         packet = LeavePoolPacket()
-        self.__socket.send(packet.convert_to_packet_bytes())
+        self.__socket.send(packet.convert_to_packet_bytes() + ServerConnection.TERMINATOR)
         result = ServerResponse(self.__socket.recv(ServerConnection.RECV_BUFF_SIZE))
 
         if result.CODE == "success":
