@@ -113,8 +113,11 @@ class ServerConnection:
         """ Инициирует выход из пула """
         packet = LeavePoolPacket()
         self.__socket.send(packet.convert_to_packet_bytes())
-        host_file = HostUIDFile()
-        host_file.remove()
+        result = ServerResponse(self.__socket.recv(ServerConnection.RECV_BUFF_SIZE))
+
+        if result.CODE == "success":
+            host_file = HostUIDFile()
+            host_file.remove()
 
     def handle_commands(self, handler) -> None:
         """ После установленного постоянного подключения принимает

@@ -86,7 +86,6 @@ class UnicastPacket(BasePacket):
     """ Класс пакета команды, которую должен выполнить клиент.
     Используется в методах отправки данных на сервер.
     """
-
     def __init__(self, command: str = None, receiver: str = None, session: Session = None):
         super().__init__()
 
