@@ -319,6 +319,31 @@ namespace crcs
         return 0;
     }
     
+    int database::delete_host(const std::string hkey)
+    {
+        std::string check_query = static_cast<std::string>("SELECT COUNT(*) FROM hosts WHERE host_key = '") +
+                                                           hkey + static_cast<std::string>("'");
+        std::string delete_query = static_cast<std::string>("DELETE FROM hosts WHERE host_key = '") + hkey + "'";
+        if(mysql_query(crcs_db, check_query.c_str()))
+        {
+            std::cout << mysql_error(crcs_db) << std::endl;
+            return ERR_SEND_QUERY;
+        }
+        MYSQL_RES* check_res = mysql_store_result(crcs_db);
+        MYSQL_ROW check_row = mysql_fetch_row(check_res);
+        if(static_cast<std::string>(check_row[0]) == static_cast<std::string>("0"))
+        {
+            mysql_free_result(check_res);
+            return ERR_INVALID_HOST_KEY;
+        }
+        if(mysql_query(crcs_db, delete_query.c_str()))
+        {
+            std::cout << mysql_error(crcs_db) << std::endl;
+            return ERR_SEND_QUERY;
+        }
+        return 0;
+    }
+    
     int database::disconnect()
     {
         mysql_close(crcs_db);

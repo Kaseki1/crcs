@@ -38,4 +38,11 @@ namespace crcs
         session_id = hkey;
         return 0;
     }
+    
+    int host_connection::leave_pool(std::string hkey)
+    {
+        if(conn_db.delete_host(hkey) == ERR_INVALID_HOST_KEY)
+            return ERR_INVALID_KEY;
+        return 0;
+    }
 }

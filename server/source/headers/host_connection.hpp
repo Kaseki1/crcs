@@ -34,6 +34,7 @@ namespace crcs
         
         int init(std::string hname, std::string pid, std::string ip, std::string& hkey);
         int connect(std::string key);
+        int leave_pool(std::string key);
         friend bool operator==(host_connection, host_connection);
         
         ~host_connection()

@@ -240,6 +240,11 @@ void* host_connection_handler(void* param)
         if(!(resp_code = hst_conn->connect(hkey)))
             active_hosts.push_back(hst_conn);
     }
+    else if(data["op_type"] == std::string("del"))
+    {
+        std::string hkey = data["host_id"].asString();
+        resp_code = hst_conn->leave_pool(hkey);
+    }
     
     std::string response;
     
@@ -263,11 +268,11 @@ void* host_connection_handler(void* param)
     }
     if(data["op_type"] != std::string("ready"))
         hst_conn->send_message(response);
-    if(data["op_type"] == std::string("init"))
-       hst_conn->close_connection();
-    char buff;
-    if(data["op_type"] != std::string("init"))
+    if(data["op_type"] == std::string("init") || data["op_type"] == std::string("del"))
+        hst_conn->close_connection();
+    if(data["op_type"] != std::string("init") && data["op_type"] != std::string("del"))
     {
+        char buff;
         while(recv(*(int*)param, &buff, 1, MSG_PEEK) > 0);
         std::cout << "Disconnected" << std::endl;
         active_hosts.erase(find(active_hosts.begin(), active_hosts.end(), hst_conn));
