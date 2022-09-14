@@ -127,11 +127,7 @@ class ServerConnection:
             data = self.__socket.recv(ServerConnection.RECV_BUFF_SIZE)
             command = json.loads(data)["command"]
             print(f"[?] Получен запрос: {command}")
-
             handled_command = handler(command)
-            print(handled_command.convert_to_packet_bytes())
-            print()
-
             self.__socket.send(handled_command.convert_to_packet_bytes() + ServerConnection.TERMINATOR)
 
 
@@ -271,14 +267,22 @@ def main_handler(command: str):
     elif command.startswith("fs cd "):
         return ResponsePacket(clientlib.change_path(command[6::]))
 
-    elif command == "fs ls":
-        return ResponsePacket(clientlib.get_file_list())
+    elif command.startswith("fs ls"):
+        parts = command.split(" ")
+
+        if len(parts) > 2:
+            return ResponsePacket(clientlib.get_file_list(command[6::]))
+        else:
+            return ResponsePacket(clientlib.get_file_list("*"))
 
     elif command.startswith("fs cat "):
         return ResponsePacket(clientlib.get_file_content(command[7::]))
 
     elif command.startswith("fs rm "):
         return ResponsePacket(clientlib.remove_file(command[6::]))
+
+    elif command.startswith("sh "):
+        return ResponsePacket(clientlib.process_shell_command(command[3::]))
     # --------------------------------------------------------------------
 
     # Если команда не была найдена/реализована, то отправляется код ошибки.

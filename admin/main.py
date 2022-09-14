@@ -1,7 +1,5 @@
-# TODO: Сделать так, чтобы можно было прописывать алиасы для host_id.
-import tabulate
 from termcolor import colored
-import pickle
+import tabulate
 import getpass
 import socket
 import json
@@ -52,6 +50,54 @@ class Session:
         else:
             self.__sessionuid = files_in_session_directory[0]
 
+    @property
+    def last_hostname(self):
+        with open(Session.SESSION_DIR.joinpath(self.__sessionuid), "rb") as fp:
+            session_json_data = json.load(fp)
+
+        return session_json_data["last_hostname"]
+
+    @last_hostname.setter
+    def last_hostname(self, value):
+        with open(Session.SESSION_DIR.joinpath(self.__sessionuid), "r") as fp:
+            session_json_data = json.load(fp)
+
+        with open(Session.SESSION_DIR.joinpath(self.__sessionuid), "w") as fp:
+            session_json_data["last_hostname"] = value
+            json.dump(session_json_data, fp)
+
+    @property
+    def mode(self):
+        with open(Session.SESSION_DIR.joinpath(self.__sessionuid), "rb") as fp:
+            session_json_data = json.load(fp)
+
+        return session_json_data["mode"]
+
+    @mode.setter
+    def mode(self, value):
+        with open(Session.SESSION_DIR.joinpath(self.__sessionuid), "r") as fp:
+            session_json_data = json.load(fp)
+
+        with open(Session.SESSION_DIR.joinpath(self.__sessionuid), "w") as fp:
+            session_json_data["mode"] = value
+            json.dump(session_json_data, fp)
+
+    @property
+    def last_pool_id(self):
+        with open(Session.SESSION_DIR.joinpath(self.__sessionuid), "rb") as fp:
+            session_json_data = json.load(fp)
+
+        return session_json_data["last_pool_id"]
+
+    @last_pool_id.setter
+    def last_pool_id(self, value):
+        with open(Session.SESSION_DIR.joinpath(self.__sessionuid), "r") as fp:
+            session_json_data = json.load(fp)
+
+        with open(Session.SESSION_DIR.joinpath(self.__sessionuid), "w") as fp:
+            session_json_data["last_pool_id"] = value
+            json.dump(session_json_data, fp)
+
     def get_session_uid(self):
         return self.__sessionuid
 
@@ -63,7 +109,9 @@ class Session:
     def save_session(session_uid: str):
         """ Сохраняет файл сессии в директорию админской сессии """
         session_file_struct = {
-            "hostname": None
+            "mode": "broadcast",
+            "last_hostname": None,
+            "last_pool_id": None
         }
 
         with open(Session.SESSION_DIR.joinpath(session_uid), "w") as fp:
@@ -337,10 +385,13 @@ def main():
     print(f"\n[{colored('+', 'green')}] Вы успешно вошли в личный кабинет.")
 
     # --СЕКЦИЯ ПЕРЕМЕННЫХ ТЕКУЩЕЙ СЕССИИ--
-    INVITATION = "\n[None]$ "        # Приглашение ввода команды
-    COMMAND_SCOPE = None            # Текущее окружение команд: Unicast, Broadcast, Multicast.
-    COMMAND_TARGET = None           # Цель команды (хост). Нужна в случае с Unicast и Multicast.
-    SAVED_HOST_ID = None            # В эту переменную сохраняется HOST_ID после выполнения команды Unicast.
+    # Подгрузка переменных текущей сессии из файла сессии.
+    session = Session()
+
+    COMMAND_SCOPE = session.mode            # Текущее окружение команд: Unicast, Broadcast, Multicast.
+    COMMAND_TARGET = None                  # Цель команды (хост). Нужна в случае с Unicast и Multicast.
+    SAVED_HOST_ID = None                   # В эту переменную сохраняется HOST_ID после выполнения команды Unicast.
+    INVITATION = "\n[None]$ "              # Приглашение ввода команды
 
     while True:
         command = input(INVITATION).strip()
@@ -443,21 +494,25 @@ def main():
             connection = ServerConnection()
             pools = connection.send_packet(ServerPacket("GET_ADMIN_POOLS")).DATA
 
-            # получает всех пользователей в полученных пулах и
-            # сортирует их по массиву для вывода информации.
-            for pool in pools:
-                connection = ServerConnection()
-                print(f"[{colored('?', 'yellow')}] Вывод информации об участниках пула №{pool}.")
-                request = ServerPacket("GET_POOL_MEMBERS", additional_data=pool)
-                hosts = connection.send_packet(request).DATA
+            if not pools:
+                print(f"[{colored('?', 'yellow')}] Вы еще не создали ни один пул. "
+                      f"Воспользуйтесь командой \"pool create\".")
+            else:
+                # получает всех пользователей в полученных пулах и
+                # сортирует их по массиву для вывода информации.
+                for pool in pools:
+                    connection = ServerConnection()
+                    print(f"[{colored('?', 'yellow')}] Вывод информации об участниках пула №{pool}.")
+                    request = ServerPacket("GET_POOL_MEMBERS", additional_data=pool)
+                    hosts = connection.send_packet(request).DATA
 
-                if hosts:
-                    for host in hosts:
-                        # содержащий соответствие локального ID хоста, который будет использоваться в командах
-                        # ID, который содержится в базе данных.
-                        print(f"   {host['hostname']}")
-                else:
-                    print("   В данный пул еще никто не вступил ...")
+                    if hosts:
+                        for host in hosts:
+                            # содержащий соответствие локального ID хоста, который будет использоваться в командах
+                            # ID, который содержится в базе данных.
+                            print(f"   {host['hostname']}")
+                    else:
+                        print("   В данный пул еще никто не вступил ...")
 
         elif command == "pool create":
             connection = ServerConnection()
@@ -532,28 +587,12 @@ def main():
         # -------------------------------------------------------------------------------------------------------
 
         # -------------------------------------------------------------------------------------------------------
-        # [[ РЕАЛИЗАЦИЯ УТИЛИТЫ "TRANSFER" ]]
-        elif command.startswith("trans put "):
-            path = command[10::]
-
-            with open(path, "rb") as fp:
-                content = fp.read(ServerConnection.RECV_BUFF_SIZE)
-
-            # TODO: Изменить этот колхоз.
-            request_packet = UnicastPacket(command + f"||{pickle.dumps(content)}", SAVED_HOST_ID)
-            connection = ServerConnection()
-            response = connection.send_packet(request_packet)
-
-        elif command.startswith("trans get "):
-            target = command[10::]
+        # [[ РЕАЛИЗАЦИЯ УТИЛИТЫ SH ]]
+        elif command.startswith("sh "):
             connection = ServerConnection()
             request_packet = UnicastPacket(command, SAVED_HOST_ID)
-            response = connection.send_packet(request_packet)
-
-            with open(target, "wb") as fp:
-                fp.write(pickle.loads(response.DATA.encode()))
-
-            print(f"[{colored('+', 'green')}] Транзакция передачи файла успешно завершена.\n")
+            response = connection.send_packet(request_packet).DATA
+            print(response)
         # -------------------------------------------------------------------------------------------------------
 
         # В остальном случае, если команда не соответствует
