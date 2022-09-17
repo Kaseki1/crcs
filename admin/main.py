@@ -349,7 +349,7 @@ class ResponseHandler:
 
 class ServerConnection:
     """ Класс подключения к серверу """
-    MID_CONN_SERVER_HOST = "192.168.1.71"
+    MID_CONN_SERVER_HOST = "91.207.114.23"
     MID_CONN_SERVER_PORT = 9090
     RECV_BUFF_SIZE = 16384
     TERMINATOR = b"\x04"
@@ -425,17 +425,21 @@ def main():
 * fs rm (path) - Удаляет файл, находящийся по адресу (path).
 * fs cat (path) - Возвращает содержимое файла, находящегося по адресу (path).
 
-[[ КОМАНДЫ УТИЛИТЫ "TRANSFER" ]]
-""")
+[[ КОМАНДЫ УТИЛИТЫ "SH" ]]
+* sh (command) - выполняет команду удаленного shell`а.""")
         # -------------------------------------------------------------------------------------------------------
 
         # -------------------------------------------------------------------------------------------------------
         # [[ Переключение между режимами Unicast, Broadcast, Multicast ]]
         # TODO: Заменить механизм Unicast (прохода по двум циклам всех хостов для формирования LOCAL_HOST_UID) на
         # запрос к серверу HOST_ID_BY_HOSTNAME.
-        if command.startswith("unicast "):
+        elif command.startswith("unicast "):
             connection = ServerConnection()
-            target = command.split(" ")[1]
+
+            try:
+                target = command[8::]
+            except ValueError:
+                print(f"[{colored('-', 'red')}] Неверный формат аргумента. Введите номер пула, состоящий из числа.")
 
             pools = connection.send_packet(ServerPacket(
                 request="GET_ADMIN_POOLS"
@@ -454,12 +458,16 @@ def main():
                         COMMAND_TARGET = member["hostname"]
                         SAVED_HOST_ID = member["host_id"]
 
-                        connection = ServerConnection()
-                        current_path = connection.send_packet(UnicastPacket("fs pwd", SAVED_HOST_ID)).DATA
+                        try:
+                            connection = ServerConnection()
+                            current_path = connection.send_packet(UnicastPacket("fs pwd", SAVED_HOST_ID)).DATA
 
-                        INVITATION = f"[{COMMAND_TARGET} {current_path}] "
-                        print(f"[{colored('+', 'green')}] Режим переключен на Unicast: {COMMAND_TARGET}\n")
-                        break
+                            INVITATION = f"[{COMMAND_TARGET} {current_path}] "
+                            print(f"[{colored('+', 'green')}] Режим переключен на Unicast: {COMMAND_TARGET}\n")
+                            break
+                        except:
+                            print(f"[{colored('-', 'red')}] Хостнейм отключен от сервера.")
+                            break
                 else:
                     # если не найдено, то сообщает об ошибке поиска.
                     print(f"[{colored('-', 'red')}] Хостнейм не был найден.")
@@ -552,7 +560,11 @@ def main():
                     connection = ServerConnection()
                     request_packet = UnicastPacket(command, SAVED_HOST_ID)
                     response = connection.send_packet(request_packet).DATA
-                    INVITATION = f"[{COMMAND_TARGET} {response}] "
+
+                    if response:
+                        INVITATION = f"[{COMMAND_TARGET} {response}] "
+                    else:
+                        print(f"[{colored('-', 'red')}] Неверно задан удаленный путь.\n")
 
                 elif command == "fs ls":
                     connection = ServerConnection()
@@ -572,16 +584,24 @@ def main():
                     connection = ServerConnection()
                     request_packet = UnicastPacket(command, SAVED_HOST_ID)
                     response = connection.send_packet(request_packet).DATA
-                    print(f"[{colored('+', 'green')}] Файл успешно удален.\n")
+
+                    if response:
+                        print(f"[{colored('+', 'green')}] Файл успешно удален.\n")
+                    else:
+                        print(f"[{colored('-', 'red')}] Файл не был найден.\n")
 
                 elif command.startswith("fs cat "):
-                    print(f"[{colored('+', 'green')}] Вывод содержимого файла: \"{command[7::]}\"")
+                    print(f"[{colored('?', 'yellow')}] Вывод содержимого файла: \"{command[7::]}\"")
                     connection = ServerConnection()
                     request_packet = UnicastPacket(command, SAVED_HOST_ID)
                     response = connection.send_packet(request_packet).DATA
-                    print(response)
+
+                    if response:
+                        print(response)
+                    else:
+                        print(f"[{colored('-', 'red')}] Файл не был найден.\n")
                 else:
-                    print(f"[{colored('!', 'red')}] Неизвестная команда. Повторите попытку.\n")
+                    print(f"[{colored('!', 'red')}] Неизвестная команда. Повторите попытку.")
             else:
                 print(f"[{colored('!', 'red')}] Утилиту \"fs\" возможно использовать только в режиме Unicast.")
         # -------------------------------------------------------------------------------------------------------

