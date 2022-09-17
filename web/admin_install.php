@@ -1,3 +1,4 @@
+<?php require_once "includes/download_links.php"; ?>
 <!doctype html>
 <html lang="en">
   <head>
@@ -33,6 +34,10 @@
               <div class="terminal-command">sudo apt-get update</div>
               Теперь вы можете установить пакет в свою систему.
               <div class="terminal-command">sudo apt-get install <b>НАЗВАНИЕ ПАКЕТА</b></div>
+            </li>
+            <li class="list-group-item">
+              <h2>Зеркала Linux</h2>
+              <em><a href="<?=$ADMIN_PANEL?>">Зеркало Google Drive</a></em>
             </li>
             <li class="list-group-item">
               <h2>Установка для Windows</h2>

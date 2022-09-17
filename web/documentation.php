@@ -33,10 +33,59 @@
       </div>
       <div class="card">
         <div class="card-header">
-          <h2>Документация по настройки клиентской части.</h2>
+          <h2>Документация по эксплуатации панели клиента.</h2>
         </div>
         <div class="card-body">
-            
+            <ul class="list-group list-group-flush">
+            <li class="list-group-item">
+              <h2>Аргументы утилиты</h2>
+              <ul>
+                <li><strong>connect [pool_id]</strong> - Подключается к пулу с номером, указанным в pool_id.</li>
+                <li><strong>start</strong> - Начинает сессию обработки админских команд.</li>
+                <li><strong>logout</strong> - Выход из пула.</li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <h2>Документация по эксплуатации панели администратора.</h2>
+        </div>
+        <div class="card-body">
+            <ul class="list-group list-group-flush">
+            <li class="list-group-item">
+              <h2>Переключение между режимами отправки команд.</h2>
+              <ul>
+                <li><strong>unicast [hostname]</strong> - Переключается на отправку команд хосту с ID (host_id).</li>
+                <li><strong>broadcast [pool uid]</strong> - Отправляет команды всем хостам в пуле с номером (pool_id).</li>
+              </ul>
+            </li>
+            <li class="list-group-item">
+              <h2>Управление пулом.</h2>
+              <ul>
+                <li><strong>pool create</strong> - Создает новый пул. Чтобы узнать его номер, введите следующую команду.</li>
+                <li><strong>pool members</strong> - Выводит список всех участников во всех админских пулах.</li>
+                <li><strong>pool delete</strong> - Удаляет пул с номером (pool_id).</li>
+              </ul>
+            </li>
+            <li class="list-group-item">
+              <h2>Команды утилиты FS.</h2>
+              <ul>
+                <li><strong>fs pwd</strong> - Возвращает текущий путь хоста.</li>
+                <li><strong>fs cd [path]</strong> - Меняет текущий путь хоста на (path).</li>
+                <li><strong>fs ls</strong> - Возвращает список всех файлов в текущем каталоге.</li>
+                <li><strong>fs rm [path]</strong> - Возвращает список всех файлов в текущем каталоге.</li>
+                <li><strong>fs cat [path]</strong> - Возвращает содержимое файла, находящегося по адресу (path).</li>
+              </ul>
+            </li>
+            <li class="list-group-item">
+              <h2>Команды утилиты SH.</h2>
+              <ul>
+                <li><strong>sh [command]</strong> - Выполняет команду удаленного shell`а..</li>
+              </ul>
+            </li>
+          </ul>
         </div>
       </div>
     </main>

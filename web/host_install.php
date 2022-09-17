@@ -35,14 +35,14 @@
               <div class="terminal-command">sudo apt-get install <b>НАЗВАНИЕ ПАКЕТА</b></div>
             </li>
             <li class="list-group-item">
-              <h2>Установка для Windows</h2>
-              Для установки на Windows системы воспользуйтесь одним из представленных зеркал.
-              <br/>
-              <a class="download" href="#">Зеркало №1</a><br/>
-              <a class="download" href="#">Зеркало №1</a><br/>
-              <a class="download" href="#">Зеркало №1</a><br/>
-              <a class="download" href="#">Зеркало №1</a>
+              <h2>Зеркала Linux</h2>
+              <em><a href="<?=$CLIENT_PANEL?>">Зеркало Google Drive (Консольная графика)</a></em><br/>
+              <em><a href="<?=$CLIENT_PANEL_GUI?>">Зеркало Google Drive (Графическое приложение)</a></em>
             </li>
+            <li class="list-group-item">
+              <h2>Установка для Windows</h2>
+              <em>Установка для Windows систем временно недоступна. Находится на стадии разработки.</em>
+            </li>          
           </ul>
         </div>
       </div>
