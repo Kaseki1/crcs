@@ -6,7 +6,7 @@ if `systemctl status crcsd`; then
     systemctl disable crcsd
 fi
 
-cat << EOF
+cat <<EOF
 [Unit]
 Type=exec
 Description=CRCS server daemon unit file
