@@ -3,7 +3,7 @@
 
 test -e /etc/systemd/system/crcsd.service && systemctl stop crcsd.service
 
-cat <<EOF
+cat <<EOF > /etc/systemd/system/crcsd.service
 [Unit]
 Type=exec
 Description=CRCS server daemon unit file
@@ -16,7 +16,7 @@ Restart=always
 
 [Install]
 WantedBy=multi-user.target
-EOF > /etc/systemd/system/crcsd.service
+EOF
 
 test -d /opt/crcsd || mkdir /opt/crcsd
 cp build/server /opt/crcsd/crcsd
