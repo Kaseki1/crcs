@@ -1,10 +1,7 @@
 #!/bin/bash
 # please run script as sudo
 
-if `systemctl status crcsd`; then
-    systemtl stop crcsd
-    systemctl disable crcsd
-fi
+test -e /etc/systemd/system/crcsd.service && systemctl stop crcsd.service
 
 cat <<EOF
 [Unit]
