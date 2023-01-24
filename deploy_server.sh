@@ -1,7 +1,7 @@
 #!/bin/bash
 # please run script as sudo
 
-test -e /etc/systemd/system/crcsd.service && systemctl stop crcsd.service
+test -e /etc/systemd/system/crcsd.service && systemctl stop crcsd.service 
 
 cat <<EOF > /etc/systemd/system/crcsd.service
 [Unit]
@@ -22,4 +22,5 @@ test -d /opt/crcsd || mkdir /opt/crcsd
 cp build/server /opt/crcsd/crcsd
 chmod +x /opt/crcsd/crcsd
 
+systemctl reload-daemon
 systemctl start crcsd
