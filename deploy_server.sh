@@ -22,5 +22,5 @@ test -d /opt/crcsd || mkdir /opt/crcsd
 cp build/server /opt/crcsd/crcsd
 chmod +x /opt/crcsd/crcsd
 
-systemctl reload-daemon
+systemctl daemon-reload
 systemctl start crcsd
