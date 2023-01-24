@@ -10,7 +10,7 @@ Description=CRCS server daemon unit file
 
 [Service]
 User=root
-ExecStart=/bin/crcs
+ExecStart=/opt/crcsd/crcsd
 ExecStop=kill $MAINPID
 Restart=always
 
