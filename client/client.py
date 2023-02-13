@@ -101,7 +101,7 @@ class HostUIDFile:
 
 class ServerConnection:
     """ Класс подключения к серверу """
-    MID_CONN_SERVER_HOST = "91.207.114.23"
+    MID_CONN_SERVER_HOST = "18.178.86.139"
     MID_CONN_SERVER_PORT = 9091
     RECV_BUFF_SIZE = 16384
     TERMINATOR = b"\x04"
